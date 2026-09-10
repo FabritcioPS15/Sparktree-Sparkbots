@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud, FileSpreadsheet, ChevronLeft, ChevronRight, Send,
-  Smartphone, Zap, Check, Wand2, Calendar, RotateCcw, Clock, FileText, Download, Cloud, Image, X, Users, Plus
+  Smartphone, Zap, Check, Calendar, RotateCcw, Clock, FileText, Download, Image, X, Users, Plus
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Loader } from '../../../components/ui/Loader';

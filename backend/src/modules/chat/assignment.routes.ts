@@ -2,8 +2,15 @@ import { Router, Response } from 'express';
 import { assignmentService } from './assignmentService';
 import { supabase } from '../../core/config/supabase';
 import { tenantMiddleware, TenantRequest } from '../../core/middleware/tenant';
+import { auditLogService } from '../audit/auditLogService';
 
 const router = Router();
+
+const getClientIp = (req: any): string => {
+  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress
+    || 'localhost';
+};
 
 // POST /api/assignment/assign - Manual assignment
 router.post('/assign', tenantMiddleware, async (req: TenantRequest, res: Response) => {
@@ -28,6 +35,20 @@ router.post('/assign', tenantMiddleware, async (req: TenantRequest, res: Respons
     }
 
     const result = await assignmentService.assignConversation(conversationId, userId, orgId);
+
+    // Auditoría
+    auditLogService.log({
+      organizationId: orgId,
+      userId: (req as any).user?.id,
+      userEmail: (req as any).user?.email,
+      action: 'ASSIGN',
+      resourceType: 'conversation',
+      resourceId: conversationId,
+      details: `Conversación asignada manualmente al agente ${userId}`,
+      ip: getClientIp(req),
+      metadata: { agentId: userId, assignmentType: 'manual' }
+    });
+
     res.json({ message: 'Conversation assigned successfully', conversation: result });
   } catch (error: any) {
     console.error('Error in /assignment/assign:', error);
@@ -115,6 +136,19 @@ router.post('/unassign', tenantMiddleware, async (req: TenantRequest, res: Respo
     }
 
     const result = await assignmentService.unassignConversation(conversationId, orgId);
+
+    // Auditoría
+    auditLogService.log({
+      organizationId: orgId,
+      userId: (req as any).user?.id,
+      userEmail: (req as any).user?.email,
+      action: 'UNASSIGN',
+      resourceType: 'conversation',
+      resourceId: conversationId,
+      details: `Asignación de conversación eliminada`,
+      ip: getClientIp(req)
+    });
+
     res.json({ message: 'Conversation unassigned successfully', conversation: result });
   } catch (error: any) {
     console.error('Error in /assignment/unassign:', error);
@@ -153,6 +187,20 @@ router.post('/transfer', tenantMiddleware, async (req: TenantRequest, res: Respo
       orgId,
       reason
     );
+
+    // Auditoría
+    auditLogService.log({
+      organizationId: orgId,
+      userId: fromUserId,
+      userEmail: (req as any).user?.email,
+      action: 'TRANSFER',
+      resourceType: 'conversation',
+      resourceId: conversationId,
+      details: `Conversación transferida a ${toUserId}${reason ? ` (${reason})` : ''}`,
+      ip: getClientIp(req),
+      metadata: { toAgentId: toUserId, reason }
+    });
+
     res.json({ message: 'Conversation transferred successfully', conversation: result });
   } catch (error: any) {
     console.error('Error in /assignment/transfer:', error);

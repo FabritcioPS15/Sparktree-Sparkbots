@@ -42,6 +42,7 @@ import ordersRoutes from './modules/orders/orders.routes';
 import campaignRoutes from './modules/campaigns/campaigns.routes';
 import reminderRoutes from './modules/reminders/reminders.routes';
 import messageTemplateRoutes from './modules/templates/messageTemplates.routes';
+import auditRoutes from './modules/audit/audit.routes';
 
 import { securityHeaders, globalRateLimit, apiRateLimit, authRateLimit } from './security/middleware/security.middleware';
 
@@ -319,6 +320,7 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/message-templates', messageTemplateRoutes);
+app.use('/api/audit-logs', auditRoutes);
 
 // Middleware to record metrics for all successful responses
 app.use((req: Request, res: Response, next: NextFunction) => {

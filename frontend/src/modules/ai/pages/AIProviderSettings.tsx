@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Brain, Check, X, Eye, EyeOff, Plus, Trash2, RefreshCw, AlertTriangle, Sparkles, Settings2 } from 'lucide-react';
+import { useState } from 'react';
+import { Brain, Check, X, Eye, EyeOff, Trash2, RefreshCw, AlertTriangle, Settings2 } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { SiOpenai, SiAnthropic } from 'react-icons/si';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -7,7 +7,6 @@ import { PageBody } from '../../../components/layout/PageBody';
 import { PageContainer } from '../../../components/layout/PageContainer';
 import { HeaderButton } from '../../../components/ui/HeaderButton';
 import { CountBadge } from '../../../components/ui/CountBadge';
-import { useAuth } from '../../../contexts/AuthContext';
 import { cn } from '../../../utils/cn';
 import { Dropdown } from '../../../components/ui/Dropdown';
 
@@ -97,7 +96,6 @@ const initialProvider = (provider: LLMProvider): ProviderState => ({
 });
 
 export const AIProviderSettings = () => {
-  const { user } = useAuth();
   const saved = loadSaved();
 
   const [providers, setProviders] = useState<Record<string, ProviderState>>(() => ({

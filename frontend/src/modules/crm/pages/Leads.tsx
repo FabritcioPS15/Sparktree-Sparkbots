@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Phone, Mail, MessageSquare, TrendingUp, Plus, User, Eye, Tag, UserPlus } from 'lucide-react';
+import { Phone, Mail, MessageSquare, TrendingUp, Plus, Eye, Tag, UserPlus } from 'lucide-react';
 import { getLeads, updateCrmClient } from '../../../services/api';
 import { formatPhoneNumber } from '../../../utils/phone';
 import { PageHeader } from '../../../components/layout/PageHeader';

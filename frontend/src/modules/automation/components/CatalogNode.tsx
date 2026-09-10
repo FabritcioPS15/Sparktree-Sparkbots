@@ -5,13 +5,13 @@ export const CatalogNode = ({ data }: any) => {
   const product = data.selectedProduct;
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-amber-200 dark:border-amber-900/50 w-64 overflow-hidden transition-all hover:shadow-amber-500/10 group node-container">
-      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-amber-400 group-hover:!bg-amber-500" />
+    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-accent-200 dark:border-accent-900/50 w-64 overflow-hidden transition-all hover:shadow-accent-500/10 group node-container">
+      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
       <div className="bg-black dark:bg-gray-900 px-4 py-3 flex items-center gap-2">
-        <Store className="w-4 h-4 text-amber-400" />
+        <Store className="w-4 h-4 text-accent-400" />
         <h3 className="font-black text-[10px] text-white uppercase tracking-widest">Catálogo</h3>
       </div>
-      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-amber-50/30 dark:group-hover:bg-amber-950/20 transition-colors">
+      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-accent-50/30 dark:group-hover:bg-accent-950/20 transition-colors">
         {product ? (
           <div className="space-y-3">
             {product.media_url && (
@@ -20,7 +20,7 @@ export const CatalogNode = ({ data }: any) => {
               </div>
             )}
             <div className="text-xs font-black text-slate-900 dark:text-white truncate">{product.title}</div>
-            <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">${product.price}</div>
+            <div className="text-[10px] font-black text-accent-600 dark:text-accent-400 uppercase tracking-widest">${product.price}</div>
             {product.description && (
               <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium line-clamp-2">{product.description}</div>
             )}
@@ -35,7 +35,7 @@ export const CatalogNode = ({ data }: any) => {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-amber-400 group-hover:!bg-amber-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
     </div>
   );
 };

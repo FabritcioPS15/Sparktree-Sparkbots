@@ -199,6 +199,16 @@ class WhatsAppQRService {
         type: 'button_reply',
         button_reply: { id: buttonReply.selectedButtonId, title: buttonReply.selectedDisplayText }
       };
+    } else if (listReply) {
+      // Respuesta de un list-interactive ("Ver opciones")
+      formattedMessage.type = 'interactive';
+      formattedMessage.interactive = {
+        type: 'list_reply',
+        list_reply: {
+          id: (listReply as any).selectedRowId || (listReply as any).selectedId,
+          title: (listReply as any).title || (listReply as any).selectedDisplayText
+        }
+      };
     } else {
       // Handle other types if needed
       console.log(`[QR Service] Message type not handled:`, Object.keys(msg.message || {}));
@@ -334,14 +344,64 @@ class WhatsAppQRService {
     return await this.socket.sendMessage(jid, { text: body });
   }
 
-  async sendButtonMessage(to: string, bodyText: string, buttons: any[], options?: { jid?: string }) {
+  async sendButtonMessage(to: string, bodyText: string, buttons: any[], options?: { jid?: string; showBackButton?: boolean; backButtonLabel?: string; listButtonLabel?: string }) {
     const jid = options?.jid || (to.includes('@') ? to : `${to}@s.whatsapp.net`);
     
     console.log(`[QR Service] Creating interactive message for ${buttons.length} options`);
     console.log(`[QR Service] To JID: ${jid}`);
     console.log(`[QR Service] Body text: ${bodyText}`);
     console.log(`[QR Service] Buttons:`, buttons);
-    
+
+    // Guardar mapeo de números a IDs para procesar respuestas
+    const buttonMapping: { [key: string]: string } = {};
+    buttons.forEach((btn, index) => {
+      buttonMapping[(index + 1).toString()] = btn.id || `btn-${index}`;
+    });
+
+    // List-interactive "Ver opciones" para menús de hasta 10 opciones
+    // (más cómodo de leer que la lista numerada). Más de 10 → texto numerado.
+    if (buttons.length <= 10) {
+      const rows = buttons.map((btn: any, index: number) => ({
+        title: (btn.text || btn.title || `Opción ${index + 1}`).substring(0, 24),
+        rowId: btn.id || `btn_${index}`,
+        description: btn.description ? btn.description.substring(0, 72) : undefined,
+      }));
+
+      if (options?.showBackButton && rows.length < 10) {
+        rows.push({ title: options?.backButtonLabel || '↩ Volver', rowId: 'btn_back', description: undefined });
+      }
+
+      const sections: any[] = [];
+      for (let i = 0; i < rows.length; i += 10) {
+        sections.push({
+          title: rows.length > 10 ? `Opciones ${sections.length + 1}` : 'Opciones',
+          rows: rows.slice(i, i + 10),
+        });
+      }
+
+      try {
+        const result = await this.socket.sendMessage(jid, {
+          list: {
+            title: 'Elige una opción',
+            text: bodyText,
+            buttonText: options?.listButtonLabel || 'Ver opciones',
+            footerText: 'Responde con el número o toca la opción',
+            sections,
+          },
+        });
+        console.log(`[QR Service] List-style message sent successfully:`, result?.key?.id);
+
+        return {
+          ...result,
+          buttonMapping,
+          isNumericButtons: true
+        };
+      } catch (listErr: any) {
+        console.error(`[QR Service] Error sending list-style message:`, listErr?.message);
+        console.error(`[QR Service] Falling back to numbered text list`);
+      }
+    }
+
     // Formato numerado claro y fácil de usar
     const numberedOptions = buttons.map((btn, index) => {
       const number = index + 1;
@@ -357,12 +417,6 @@ class WhatsAppQRService {
       console.log(`[QR Service] Button-style message sent successfully:`, result);
       console.log(`[QR Service] Message ID:`, result?.key?.id);
       console.log(`[QR Service] Message type:`, Object.keys(result?.message || {}));
-      
-      // Guardar mapeo de números a IDs para procesar respuestas
-      const buttonMapping: { [key: string]: string } = {};
-      buttons.forEach((btn, index) => {
-        buttonMapping[(index + 1).toString()] = btn.id || `btn-${index}`;
-      });
       
       console.log(`[QR Service] Button mapping:`, buttonMapping);
       

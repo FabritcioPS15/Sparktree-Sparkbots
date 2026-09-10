@@ -14,6 +14,7 @@ export const edgeColorMap: Record<string, string> = {
   trigger: '#10b981',
   text: '#3b82f6',
   interactive: '#8b5cf6',
+  confirmation: '#10b981',
   media: '#f43f5e',
   catalog: '#f59e0b',
   capture: '#06b6d4',
@@ -46,7 +47,8 @@ function CustomEdge({
 }: EdgeProps) {
   const nodes = useNodes();
   const sourceNode = nodes.find((n) => n.id === source);
-  const color = data?.color || colorForNode(sourceNode);
+  const edgeData = data as Record<string, unknown> | undefined;
+  const color = typeof edgeData?.color === 'string' ? edgeData.color : colorForNode(sourceNode);
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -58,7 +60,7 @@ function CustomEdge({
     curvature: 0.35,
   });
 
-  const showLabel = typeof data?.label === 'string' && (data.label as string).trim() !== '';
+  const showLabel = typeof edgeData?.label === 'string' && edgeData.label.trim() !== '';
 
   const arrow = {
     type: MarkerType.ArrowClosed,
@@ -72,7 +74,7 @@ function CustomEdge({
       <BaseEdge
         id={id}
         path={edgePath}
-        markerEnd={arrow}
+        markerEnd={arrow as never}
         style={{
           stroke: color,
           strokeWidth: selected ? 3 : 2,
@@ -93,7 +95,7 @@ function CustomEdge({
               letterSpacing: '0.02em',
             }}
           >
-            {data.label as string}
+            {typeof edgeData?.label === 'string' ? edgeData.label : ''}
           </div>
         </EdgeLabelRenderer>
       )}

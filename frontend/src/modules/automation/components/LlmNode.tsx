@@ -24,15 +24,15 @@ export const LlmNode = ({ data }: any) => {
   const handoffThreshold = data.handoffThreshold ?? 0.6;
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-violet-200 dark:border-violet-900/50 w-64 overflow-hidden transition-all hover:shadow-violet-500/10 group node-container">
-      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-violet-400 group-hover:!bg-violet-500" />
+    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-accent-200 dark:border-accent-900/50 w-64 overflow-hidden transition-all hover:shadow-accent-500/10 group node-container">
+      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
       <div className="bg-black dark:bg-gray-900 p-4 flex items-center gap-3 rounded-t-2xl">
-        <div className="w-9 h-9 bg-violet-500/10 rounded-xl flex items-center justify-center">
-          <Sparkles className="w-5 h-5 text-violet-400" />
+        <div className="w-9 h-9 bg-accent-500/10 rounded-xl flex items-center justify-center">
+          <Sparkles className="w-5 h-5 text-accent-400" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-black text-[11px] text-white uppercase tracking-widest">IA Completa</h3>
-          <p className="text-[8px] text-violet-400 font-black uppercase tracking-widest leading-none">LLM</p>
+          <p className="text-[8px] text-accent-400 font-black uppercase tracking-widest leading-none">LLM</p>
         </div>
         {autoHandoff && (
           <div className="w-6 h-6 bg-red-500/20 rounded-lg flex items-center justify-center" title={`Auto-escalado al ${Math.round(handoffThreshold * 100)}%`}>
@@ -40,15 +40,15 @@ export const LlmNode = ({ data }: any) => {
           </div>
         )}
       </div>
-      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-violet-50/30 dark:group-hover:bg-violet-950/20 transition-colors space-y-3">
+      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-accent-50/30 dark:group-hover:bg-accent-950/20 transition-colors space-y-3">
         {provider ? (
           <>
-            <div className="flex items-center justify-between px-3 py-2 bg-violet-50 dark:bg-violet-500/10 rounded-xl border border-violet-200 dark:border-violet-800/50">
-              <span className="text-[9px] font-black text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+            <div className="flex items-center justify-between px-3 py-2 bg-accent-50 dark:bg-accent-500/10 rounded-xl border border-accent-200 dark:border-accent-800/50">
+              <span className="text-[9px] font-black text-accent-600 dark:text-accent-300 uppercase tracking-wider">
                 {PROVIDER_LABELS[provider] || provider}
               </span>
               {model && (
-                <span className="text-[8px] font-bold text-violet-500 dark:text-violet-400">
+                <span className="text-[8px] font-bold text-accent-500 dark:text-accent-400">
                   {MODEL_LABELS[model] || model}
                 </span>
               )}
@@ -59,7 +59,7 @@ export const LlmNode = ({ data }: any) => {
               </div>
             )}
             <div className="flex items-center gap-1 text-[8px] text-slate-400 font-bold">
-              <Sparkles className="w-3 h-3 text-violet-400" />
+              <Sparkles className="w-3 h-3 text-accent-400" />
               <span>Temp: {data.temperature || 0.7}</span>
             </div>
             {autoHandoff && (
@@ -77,7 +77,7 @@ export const LlmNode = ({ data }: any) => {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-violet-400 group-hover:!bg-violet-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
     </div>
   );
 };

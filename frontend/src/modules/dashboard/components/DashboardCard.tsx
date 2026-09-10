@@ -3,6 +3,7 @@ import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '../../../utils/cn';
 
 interface DashboardCardProps extends Omit<HTMLMotionProps<"div">, "title"> {
+  children?: React.ReactNode;
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   icon?: React.ReactNode;

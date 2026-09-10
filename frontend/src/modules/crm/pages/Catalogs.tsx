@@ -89,7 +89,7 @@ export const Catalogs = () => {
     }
   };
 
-  const handleImageUpload = async (itemId: string, file: File): Promise<string | null> => {
+  const handleImageUpload = async (_itemId: string, file: File): Promise<string | null> => {
     try {
       const url = await uploadProductMedia(file);
       return url as string;

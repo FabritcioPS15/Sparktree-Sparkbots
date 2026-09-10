@@ -259,16 +259,16 @@ export const WhatsAppQR = () => {
                 icon={<div className="p-2 bg-gradient-to-br from-accent-500 to-accent-700 rounded-xl shadow-lg shadow-accent-500/25"><Cloud size={18} color="white" /></div>}
                 title="Configuración activa — Cloud API"
               >
-                <div className="flex flex-col items-center gap-6 text-center">
-                  <div className="w-24 h-24 bg-gradient-to-br from-accent-500 to-accent-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-accent-500/30">
-                    <CheckCircle className="w-12 h-12 text-white" />
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-accent-500 to-accent-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-accent-500/30">
+                    <CheckCircle className="w-10 h-10 text-white" />
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">CONFIGURACIÓN COMPLETADA</h3>
                     <p className="text-[10px] font-black text-accent-500 uppercase tracking-widest mt-1">WhatsApp Cloud API Activa</p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
-                    <div className="flex items-center gap-3 px-5 py-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
                       <div className="p-2 bg-accent-500/10 rounded-lg text-accent-500">
                         <Smartphone className="w-5 h-5" />
                       </div>
@@ -300,7 +300,7 @@ export const WhatsAppQR = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 px-5 py-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
                       <div className="p-2 bg-accent-500/10 rounded-lg text-accent-500">
                         <Cloud className="w-5 h-5" />
                       </div>
@@ -324,9 +324,9 @@ export const WhatsAppQR = () => {
                 icon={<div className="p-2 bg-gradient-to-br from-accent-500 to-accent-700 rounded-xl shadow-lg shadow-accent-500/25"><Cloud size={18} color="white" /></div>}
                 title="Conectar con WhatsApp Cloud API"
               >
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {/* Guia paso a paso */}
-                  <div className="p-5 bg-accent-500/5 border border-accent-500/15 rounded-xl">
+                  <div className="p-4 bg-accent-500/5 border border-accent-500/15 rounded-xl">
                     <p className="text-[10px] font-black text-accent-600 dark:text-accent-300 uppercase tracking-widest mb-3">Cómo obtener tus credenciales</p>
                     <div className="space-y-2.5">
                       <div className="flex items-start gap-2.5">
@@ -345,7 +345,7 @@ export const WhatsAppQR = () => {
                   </div>
 
                   {/* Campos del formulario */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <InputField
                       label="Phone Number ID"
                       value={cloudCredentials.phoneNumberId}
@@ -413,7 +413,7 @@ export const WhatsAppQR = () => {
                 icon={<div className="p-2 bg-gradient-to-br from-accent-500 to-accent-700 rounded-xl shadow-lg shadow-accent-500/25"><Cloud size={18} color="white" /></div>}
                 title="WhatsApp Cloud API"
               >
-                <div className="flex flex-col items-center gap-5 text-center">
+                <div className="flex flex-col items-center gap-4 text-center">
                   <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
                     <Cloud className="w-10 h-10 text-accent-500" />
                   </div>
@@ -455,7 +455,7 @@ export const WhatsAppQR = () => {
               title={isConnected ? 'Sesión Activa' : 'Escanea para Iniciar Sesión'}
             >
               {!isConnected ? (
-                <div className="flex flex-col items-center gap-6 text-center">
+                <div className="flex flex-col items-center gap-4 text-center">
                   <div className="p-4 bg-white rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700">
                     {data.qr ? (
                       <img src={data.qr} alt="WhatsApp QR" className="w-64 h-64 rounded-xl" />
@@ -476,15 +476,15 @@ export const WhatsAppQR = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-6 text-center">
-                  <div className="w-24 h-24 bg-gradient-to-br from-accent-500 to-accent-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-accent-500/30">
-                    <CheckCircle className="w-12 h-12 text-white" />
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-accent-500 to-accent-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-accent-500/30">
+                    <CheckCircle className="w-10 h-10 text-white" />
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">SESIÓN INICIADA</h3>
                     <p className="text-[10px] font-black text-accent-500 uppercase tracking-widest mt-1">Línea de Atención Activa</p>
                   </div>
-                  <div className="flex items-center gap-3 px-6 py-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50">
                     <div className="p-2 bg-accent-500/10 rounded-lg text-accent-500">
                       <Smartphone className="w-5 h-5" />
                     </div>

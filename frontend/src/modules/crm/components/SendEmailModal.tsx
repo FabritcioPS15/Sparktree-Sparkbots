@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Send, X, Plus, Trash2, Tag, FileText, User } from 'lucide-react';
+import { Mail, Send, Plus, Trash2, Tag, FileText, User } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { Modal } from '../../../components/ui/Modal';
 

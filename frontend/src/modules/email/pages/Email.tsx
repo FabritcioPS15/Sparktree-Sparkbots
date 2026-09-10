@@ -276,16 +276,6 @@ export const Email = () => {
     if (bodyRef.current) setBody((bodyRef.current.innerText || '').trim());
   }, []);
 
-  const insertAtBody = (text: string) => {
-    if (bodyRef.current) {
-      bodyRef.current.focus();
-      document.execCommand('insertText', false, text);
-      handleBodyInput();
-    } else {
-      setBody(prev => prev + '\n' + text);
-    }
-  };
-
   const templates: Record<string, string> = {
     welcome: 'Hola,\n\nGracias por contactarnos. Quedamos a tu disposición para cualquier consulta.\n\nSaludos cordiales,\nEquipo SparkBot',
     quote: 'Adjuntamos la cotización solicitada con los detalles de nuestros planes y servicios. Quedamos atentos a cualquier pregunta.\n\nSaludos,\nEquipo SparkBot',
@@ -575,7 +565,7 @@ export const Email = () => {
                   <div className="flex items-center gap-2 px-5 py-2 border-b border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-white/[0.01]">
                     <BookTemplate className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest">Insertar plantilla:</span>
-                    {Object.entries(templates).map(([key, text]) => (
+                    {Object.entries(templates).map(([key]) => (
                       <button key={key} onClick={() => insertTemplate(key)}
                         className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all ${activeTemplateKey === key
                           ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400'

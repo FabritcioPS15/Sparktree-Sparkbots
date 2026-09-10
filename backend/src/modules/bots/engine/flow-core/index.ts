@@ -5,6 +5,34 @@ import { executeRAGNode } from '../../../../automation/nodes/knowledge/rag.node'
 
 const PHONE_VAR_KEYWORDS = ['telefono', 'phone', 'celular'];
 
+// Ventana (ms) durante la cual un trigger exacto ya ejecutado para el mismo
+// remitente no vuelve a dispararse. Protege de reenvíos involuntarios repetidos
+// de la misma palabra clave o de re-procesamiento duplicado del mismo mensaje.
+const TRIGGER_DEDUP_WINDOW_MS = 60 * 1000;
+
+// Cache en memoria { senderPhone -> { lastTrigger, executedAt } }.
+const lastTriggerCache = new Map<string, { lastTrigger: string; executedAt: number }>();
+
+// Márgenes de limpieza para evitar que el Map crezca sin límite.
+const DEDUP_CACHE_MAX = 2000;
+const DEDUP_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+
+const isDuplicateTrigger = (senderPhone: string, triggerLower: string, now: number): boolean => {
+  const entry = lastTriggerCache.get(senderPhone);
+  if (!entry) return false;
+  if (entry.lastTrigger !== triggerLower) return false;
+  return now - entry.executedAt < TRIGGER_DEDUP_WINDOW_MS;
+};
+
+const rememberTrigger = (senderPhone: string, triggerLower: string, now: number): void => {
+  if (lastTriggerCache.size >= DEDUP_CACHE_MAX) {
+    for (const [k, v] of lastTriggerCache) {
+      if (now - v.executedAt > DEDUP_CACHE_MAX_AGE_MS) lastTriggerCache.delete(k);
+    }
+  }
+  lastTriggerCache.set(senderPhone, { lastTrigger: triggerLower, executedAt: now });
+};
+
 // Un nodo de captura cuya variable contenga estas palabras se trata como
 // teléfono del contacto: se valida, se extrae del texto y se guarda en phone_number.
 const isPhoneVariable = (name: string): boolean => {
@@ -60,7 +88,20 @@ export async function handleIncomingMessage(
     }
   };
 
-  // --- Historial de nodos para soportar "Volver" ---
+  // Limpia el bot_state de confirmación cuando el usuario responde por botón
+// (nativo/número) al nodo confirmation. Evita que el siguiente texto libre se
+// siga interpretando como respuesta sí/no de una confirmación ya completada.
+const clearConfirmationState = async () => {
+  const state = (contactData as any)?.bot_state || '';
+  if (state.startsWith('confirmation_')) {
+    await supabase
+      .from('contacts')
+      .update({ bot_state: null })
+      .eq('id', organizationConfig.contactId);
+  }
+};
+
+// --- Historial de nodos para soportar "Volver" ---
   // Se mantiene una pila de nodos de espera (menús/inputs) por contacto en
   // custom_attributes.flow_history. "Volver" hace pop y re-ejecuta el anterior.
   const getFlowHistory = async (): Promise<string[]> => {
@@ -86,9 +127,9 @@ export async function handleIncomingMessage(
       .eq('id', organizationConfig.contactId);
   };
 
-  const pushFlowHistory = async (nodeId: string | null) => {
+  const pushFlowHistory = async (nodeId: string | null, knownHistory?: string[]) => {
     if (!nodeId) return;
-    const history = await getFlowHistory();
+    const history = knownHistory || await getFlowHistory();
     if (history[history.length - 1] !== nodeId) {
       history.push(nodeId);
       await setFlowHistory(history);
@@ -97,8 +138,8 @@ export async function handleIncomingMessage(
 
   // Ejecuta el "volver": saca el nodo actual de la pila y re-ejecuta el
   // anterior (o el menú principal si la pila queda vacía).
-  const goBack = async (flow: any) => {
-    const history = await getFlowHistory();
+  const goBack = async (flow: any, knownHistory?: string[]) => {
+    const history = knownHistory || await getFlowHistory();
     let targetNodeId: string | null = null;
 
     if (history.length > 1) {
@@ -109,6 +150,10 @@ export async function handleIncomingMessage(
       targetNodeId = null;
     }
     await setFlowHistory(history);
+
+    // Si se estaba esperando una confirmación, salir de ese estado para que el
+    // nodo al que se retrocede vuelva a manejar el mensaje normalmente.
+    await clearConfirmationState();
 
     if (targetNodeId) {
       await executeNode(flow, targetNodeId);
@@ -213,9 +258,9 @@ export async function handleIncomingMessage(
           console.error(`[Flow Engine] ERROR sending text message:`, error);
         }
       } else if (node.type === 'interactive') {
+        const history = await getFlowHistory();
         try {
           console.log(`[Flow Engine] Sending interactive message to ${senderPhone}`);
-          const history = await getFlowHistory();
           const res = await waService.sendButtonMessage(
             senderPhone,
             node.data?.bodyText || '',
@@ -237,8 +282,51 @@ export async function handleIncomingMessage(
         } catch (error) {
           console.error(`[Flow Engine] ERROR sending or saving interactive message:`, error);
         }
-        await pushFlowHistory(currentNodeId);
+        await pushFlowHistory(currentNodeId, history);
         break; // Wait for user button click
+      } else if (node.type === 'confirmation') {
+        // Nodo de confirmación Sí/No. Reutiliza el sistema interactivo (botones
+        // quick-reply) para que el botón "Volver", la respuesta por número en QR
+        // y los botones nativos de Cloud API resuelvan los edges con los handles
+        // confirm_yes / confirm_no. Adicionalmente responde a texto libre "sí"/"no"
+        // vía el bot_state confirmation_<nodeId> (ver manejo de texto más abajo).
+        const history = await getFlowHistory();
+        const yesLabel = node.data?.yesLabel || '✅ Sí';
+        const noLabel = node.data?.noLabel || '❌ No';
+        const confirmationButtons = [
+          { id: 'confirm_yes', title: yesLabel, text: yesLabel },
+          { id: 'confirm_no', title: noLabel, text: noLabel },
+        ];
+
+        await supabase
+          .from('contacts')
+          .update({ bot_state: `confirmation_${currentNodeId}` })
+          .eq('id', organizationConfig.contactId)
+          .eq('organization_id', organizationConfig.organizationId);
+
+        try {
+          console.log(`[Flow Engine] Sending confirmation message to ${senderPhone}`);
+          const question = node.data?.bodyText || node.data?.question || '¿Confirmas esta acción?';
+          const res = await waService.sendButtonMessage(
+            senderPhone,
+            question,
+            confirmationButtons,
+            { jid: contactJid, showBackButton: history.length > 0, backButtonLabel: '↩ Volver' }
+          );
+          console.log(`[Flow Engine] Confirmation message sent. Button mapping:`, res.buttonMapping);
+
+          await saveOutgoingMessage('text', {
+            buttonMapping: res?.buttonMapping,
+            bodyText: question,
+            isNumericButtons: !!res?.isNumericButtons,
+            buttons: confirmationButtons.map((b) => ({ id: b.id, text: b.title })),
+          }, res);
+          console.log(`[Flow Engine] Confirmation message database save completed.`);
+        } catch (error) {
+          console.error(`[Flow Engine] ERROR sending or saving confirmation message:`, error);
+        }
+        await pushFlowHistory(currentNodeId, history);
+        break; // Wait for Sí/No reply
       } else if (node.type === 'media') {
         const url = node.data?.mediaUrl;
         const caption = node.data?.caption;
@@ -279,6 +367,14 @@ export async function handleIncomingMessage(
           console.error('Webhook node failed:', error);
         }
       } else if (node.type === 'handoff') {
+        // Enviar mensaje de despedida/transferencia configurado en el nodo.
+        const handoffMsg = node.data?.message || 'Te conecto con un asesor humano, en un momento te atiende.';
+        try {
+          const res = await waService.sendTextMessage(senderPhone, handoffMsg, { jid: contactJid });
+          await saveOutgoingMessage('text', handoffMsg, res);
+        } catch (error) {
+          console.error(`[Flow Engine] ERROR sending handoff message:`, error);
+        }
         await supabase
           .from('contacts')
           .update({ bot_state: 'handoff' })
@@ -337,6 +433,56 @@ export async function handleIncomingMessage(
     }
   };
 
+  // Resuelve el flow activo paralelizando las consultas de flujo.
+  // Order: asignación por conexión → is_active → status='active' (fallback).
+  const resolveFlow = async (): Promise<any> => {
+    if (preloadedFlow) {
+      return preloadedFlow;
+    }
+
+    let flow: any = null;
+
+    if (organizationConfig.whatsappConnectionId) {
+      const { data: assignments } = await supabase
+        .from('flow_assignments')
+        .select(`flows!inner(*)`)
+        .eq('whatsapp_connection_id', organizationConfig.whatsappConnectionId)
+        .eq('is_active', true);
+      if (assignments && assignments.length > 0) {
+        flow = assignments[0].flows;
+        console.log(`[Bot Engine] Specific flow assignment found: ${flow.name}`);
+      }
+    }
+
+    if (flow) return flow;
+
+    // Consultar is_active y status en paralelo (único round-trip de red)
+    const [activeResult, statusResult] = await Promise.all([
+      supabase
+        .from('flows')
+        .select('*')
+        .eq('organization_id', organizationConfig.organizationId)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('flows')
+        .select('*')
+        .eq('organization_id', organizationConfig.organizationId)
+        .eq('status', 'active')
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ]);
+
+    flow = activeResult.data || statusResult.data || null;
+    if (flow) {
+      console.log(`[Bot Engine] Using ${activeResult.data ? 'is_active' : "status='active'"} default organization flow: ${flow.name}`);
+    }
+    return flow;
+  };
+
   if (message.type === 'text') {
     if (!message?.text?.body) {
       console.log(`[Bot Engine] Received text message with no body (maybe empty or unsupported type). Skipping bot processing.`);
@@ -347,68 +493,51 @@ export async function handleIncomingMessage(
     const textLower = textBody.toLowerCase();
     console.log(`[Bot Engine] Processing text message: "${textBody}" from ${senderPhone}`);
 
-    // Check if in handoff
-    const { data: contact } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('id', organizationConfig.contactId)
-      .single();
+    // Reutiliza el contacto ya consultado al inicio (evita una query extra).
+    const contact = contactData as any;
 
+    // ── AUTO-REACTIVACIÓN ────────────────────────────────────────────────────
+    // Si la persona vuelve a escribir después de 24h sin interacción, se reinicia
+    // el estado del bot (sale de handoff/captura y limpia el historial de "Volver")
+    // para que el flujo arranque de nuevo desde el menú principal.
+    const isPausedState = contact?.bot_state === 'handoff' || (contact?.bot_state && (contact.bot_state.startsWith('capture_') || contact.bot_state.startsWith('confirmation_')));
+    const hasFlowHistory = Array.isArray(contact?.custom_attributes?.flow_history) && contact.custom_attributes.flow_history.length > 0;
+    if (isPausedState || hasFlowHistory) {
+      const { data: recentMsgs } = await supabase
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', organizationConfig.conversationId)
+        .order('created_at', { ascending: false })
+        .limit(2);
+      // El mensaje actual ya quedó guardado antes de entrar al bot: la interacción
+      // previa real es el elemento [1] de la lista descendente.
+      const prevInteraction = recentMsgs && recentMsgs.length > 1
+        ? new Date((recentMsgs as any)[1].created_at).getTime()
+        : 0;
+      const INACTIVITY_RESET_MS = 24 * 60 * 60 * 1000;
+      if (prevInteraction > 0 && Date.now() - prevInteraction >= INACTIVITY_RESET_MS) {
+        console.log(`[Bot Engine] Contacto ${senderPhone} inactivo >24h. Reiniciando estado del bot (reactivación).`);
+        const currentAttributes = contact.custom_attributes || {};
+        await supabase
+          .from('contacts')
+          .update({
+            bot_state: null,
+            custom_attributes: { ...currentAttributes, flow_history: [] }
+          })
+          .eq('id', organizationConfig.contactId);
+        contact.bot_state = null;
+        contact.custom_attributes = { ...currentAttributes, flow_history: [] };
+      }
+    }
+
+    // Check if in handoff
     if (contact?.bot_state === 'handoff') {
       console.log(`[Bot Engine] Contact ${senderPhone} is in handoff mode. Bot is paused for connection ${organizationConfig.whatsappConnectionId}.`);
       return; // Bot is silent, human agent is handling
     }
 
     // Get active flow
-    let flow = preloadedFlow;
-    
-    if (!flow) {
-      if (organizationConfig.whatsappConnectionId) {
-        console.log(`[Bot Engine] Checking specific assignment for connection ${organizationConfig.whatsappConnectionId}`);
-        const { data: assignments } = await supabase
-          .from('flow_assignments')
-          .select(`flows!inner(*)`)
-          .eq('whatsapp_connection_id', organizationConfig.whatsappConnectionId)
-          .eq('is_active', true);
-        
-        if (assignments && assignments.length > 0) {
-          flow = (assignments[0] as any).flows;
-          console.log(`[Bot Engine] Specific flow assignment found: ${flow.name}`);
-        }
-      }
-
-      if (!flow) {
-        console.log(`[Bot Engine] No specific connection assignment, checking default flows for org ${organizationConfig.organizationId}`);
-        // Try is_active first (set by create-default endpoint)
-        const { data: fetchedFlow } = await supabase
-          .from('flows')
-          .select('*')
-          .eq('organization_id', organizationConfig.organizationId)
-          .eq('is_active', true)
-          .order('is_default', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        flow = fetchedFlow;
-        
-        // Fallback: check status='active' (set by FlowBuilder UI)
-        if (!flow) {
-          console.log(`[Bot Engine] No is_active flow found, checking status='active'...`);
-          const { data: statusFlow } = await supabase
-            .from('flows')
-            .select('*')
-            .eq('organization_id', organizationConfig.organizationId)
-            .eq('status', 'active')
-            .order('is_default', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          flow = statusFlow;
-        }
-        
-        if (flow) {
-          console.log(`[Bot Engine] Using default organization flow: ${flow.name}`);
-        }
-      }
-    }
+    const flow = await resolveFlow();
 
     if (!flow) {
       console.log(`[Bot Engine] No active flow found for sender ${senderPhone} (Connection: ${organizationConfig.whatsappConnectionId})`);
@@ -487,6 +616,68 @@ export async function handleIncomingMessage(
       }
     }
 
+    // ── CONFIRMACIÓN: responder por texto libre "sí"/"no" ───────────────────
+    // Cuando el bot espera confirmación (bot_state confirmation_<nodeId>), se
+    // acepta texto libre equivalente a sí/no (además del botón rápido). Si la
+    // respuesta no es clara, se re-envía la pregunta para reintentar.
+    if (contact?.bot_state?.startsWith('confirmation_')) {
+      const nodeId = contact.bot_state.replace('confirmation_', '');
+      const node = flow.nodes.find((n: any) => n.id === nodeId);
+
+      if (node) {
+        const trimmed = textBody.trim();
+        const trimmedLower = trimmed.toLowerCase();
+        const isYes = /^(s[ií]|yes|ok|okay|dale|acepto|confirmo|siempre)$/.test(trimmedLower) || trimmed === '1';
+        const isNo = /^(no|nop|nope)$/.test(trimmedLower) || trimmed === '2';
+
+        if (isYes || isNo) {
+          console.log(`[Bot Engine] Confirmation "${isYes ? 'Sí' : 'No'}" received from ${senderPhone}`);
+          await supabase
+            .from('contacts')
+            .update({ bot_state: null })
+            .eq('id', organizationConfig.contactId);
+
+          const sourceHandle = isYes ? 'confirm_yes' : 'confirm_no';
+          const edge =
+            flow.edges.find((e: any) => e.source === nodeId && e.sourceHandle === sourceHandle) ||
+            flow.edges.find((e: any) => e.sourceHandle === sourceHandle && e.source === nodeId) ||
+            flow.edges.find((e: any) => e.source === nodeId);
+
+          if (edge && edge.target) {
+            await executeNode(flow, edge.target);
+          } else {
+            console.log(`[Bot Engine] No edge found for confirmation handle: ${sourceHandle}`);
+          }
+          return;
+        }
+
+        // Re-intento: mensaje aclaratorio + reenvío de los botones Sí/No.
+        const retryMsg = node.data?.retryMessage || 'Por favor responde Sí o No para continuar:';
+        const retryRes = await waService.sendTextMessage(senderPhone, retryMsg, { jid: contactJid });
+        await saveOutgoingMessage('text', retryMsg, retryRes);
+
+        const yesLabel = node.data?.yesLabel || '✅ Sí';
+        const noLabel = node.data?.noLabel || '❌ No';
+        const confirmationButtons = [
+          { id: 'confirm_yes', title: yesLabel, text: yesLabel },
+          { id: 'confirm_no', title: noLabel, text: noLabel },
+        ];
+        const question = node.data?.bodyText || node.data?.question || '¿Confirmas esta acción?';
+        try {
+          const res = await waService.sendButtonMessage(senderPhone, question, confirmationButtons, { jid: contactJid });
+          await saveOutgoingMessage('text', {
+            buttonMapping: res?.buttonMapping,
+            bodyText: question,
+            isNumericButtons: !!res?.isNumericButtons,
+            buttons: confirmationButtons.map((b) => ({ id: b.id, text: b.title })),
+          }, res);
+        } catch (error) {
+          console.error(`[Flow Engine] ERROR re-sending confirmation message:`, error);
+        }
+        return;
+      }
+    }
+
     // Get trigger node configuration
     const triggerNode = (flow.nodes || []).find((n: any) => n.type === 'trigger') || (flow.nodes && flow.nodes[0]);
     const strategy = triggerNode?.data?.matchingStrategy || 'flexible';
@@ -538,6 +729,7 @@ export async function handleIncomingMessage(
               const edge = flow.edges.find((e: any) => e.sourceHandle === buttonId || e.source === buttonId);
               if (edge && edge.target) {
                 console.log(`[Flow Engine] Found edge: ${edge.id}, moving to node: ${edge.target}`);
+                await clearConfirmationState();
                 await executeNode(flow, edge.target);
                 // Mark as completed when flow finishes naturally (or update state)
                 await updateFlowExecution(flow.id, 'completed');
@@ -605,6 +797,18 @@ export async function handleIncomingMessage(
 
     if (matchedTrigger) {
       console.log(`[Bot Engine] Trigger matched (${strategy}): "${matchedTrigger}"`);
+
+      // ── COOLDOWN DE TRIGGER ────────────────────────────────────────────────
+      // Si el contacto envía la misma palabra clave repetida dentro de la ventana
+      // (p.ej. reenvía "info" o el mismo mensaje llega duplicado), no se re-dispara
+      // el flujo de nuevo para evitar mensajes repetidos con todo el protocolo.
+      const now = Date.now();
+      if (isDuplicateTrigger(senderPhone, matchedTrigger.toLowerCase().trim(), now)) {
+        console.log(`[Bot Engine] Duplicate trigger "${matchedTrigger}" from ${senderPhone} within cooldown. Skipping to avoid spam.`);
+        return;
+      }
+      rememberTrigger(senderPhone, matchedTrigger.toLowerCase().trim(), now);
+
       await trackFlowExecution(flow.id, matchedTrigger);
       
       if (triggerNode) {
@@ -634,38 +838,7 @@ export async function handleIncomingMessage(
 
     let flow = preloadedFlow;
     if (!flow) {
-      if (organizationConfig.whatsappConnectionId) {
-        const { data: assignments } = await supabase
-          .from('flow_assignments')
-          .select(`flows!inner(*)`)
-          .eq('whatsapp_connection_id', organizationConfig.whatsappConnectionId)
-          .eq('is_active', true);
-        if (assignments && assignments.length > 0) flow = assignments[0].flows;
-      }
-      if (!flow) {
-        const { data: fetchedFlow } = await supabase
-          .from('flows')
-          .select('*')
-          .eq('organization_id', organizationConfig.organizationId)
-          .eq('is_active', true)
-          .order('is_default', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        flow = fetchedFlow;
-        
-        // Fallback: check status='active'
-        if (!flow) {
-          const { data: statusFlow } = await supabase
-            .from('flows')
-            .select('*')
-            .eq('organization_id', organizationConfig.organizationId)
-            .eq('status', 'active')
-            .order('is_default', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          flow = statusFlow;
-        }
-      }
+      flow = await resolveFlow();
     }
 
     // Opción "Volver": re-ejecuta el nodo anterior del historial.
@@ -678,6 +851,7 @@ export async function handleIncomingMessage(
     if (flow && flow.edges) {
       const edge = flow.edges.find((e: any) => e.sourceHandle === buttonId || e.source === buttonId);
       if (edge && edge.target) {
+        await clearConfirmationState();
         await executeNode(flow, edge.target);
         // Mark as completed when flow finishes naturally
         await updateFlowExecution(flow.id, 'completed');

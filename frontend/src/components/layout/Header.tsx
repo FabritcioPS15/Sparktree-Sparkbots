@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Moon, Sun, Menu, LogOut, User, Settings as SettingsIcon,
-  ChevronDown, Building2, Users, Bell, Search, Plus, HelpCircle, CreditCard,
-  MessageSquare, Bot, Sparkles, Share2, Palette, Tag, BookOpen, FileText, Megaphone
+  Moon, Sun, Menu, LogOut, User,
+  ChevronDown, Building2, Users, Search, Plus, HelpCircle, CreditCard,
+  Bot, Share2, Palette, Tag, BookOpen, FileText, Megaphone
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { NotificationBell } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnections } from '../../contexts/ConnectionsContext';
-import { useCustomization, STATUS_KEYS, STATUS_GROUPS, BADGE_VARIANTS } from '../../contexts/CustomizationContext';
+import { useCustomization, STATUS_GROUPS, BADGE_VARIANTS } from '../../contexts/CustomizationContext';
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger } from 'react-icons/fa';
 import { SiTiktok } from 'react-icons/si';
 import { Modal } from '../ui/Modal';

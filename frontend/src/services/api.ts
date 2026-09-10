@@ -50,6 +50,16 @@ export const getSystemUsers = async () => {
   }
 };
 
+export const getTeamUsers = async () => {
+  try {
+    const response = await api.get('/users/team');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('Error fetching team users:', error);
+    return [];
+  }
+};
+
 export const getClients = async () => {
   try {
     const response = await api.get('/crm/clients');
@@ -131,6 +141,22 @@ export const assignAgentToConversation = async (conversationId: string, userId: 
     return response.data;
   } catch (error) {
     console.error('Error assigning agent to conversation:', error);
+    throw error;
+  }
+};
+
+export const getAuditLogs = async (params: {
+  search?: string;
+  action?: string;
+  userId?: string;
+  page?: number;
+  pageSize?: number;
+} = {}) => {
+  try {
+    const response = await api.get('/audit-logs', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
     throw error;
   }
 };
@@ -1063,7 +1089,7 @@ export const addDocument = async (baseId: string, data: { title: string; content
   }
 };
 
-export const deleteDocument = async (baseId: string, docId: string) => {
+export const deleteDocument = async (_baseId: string, docId: string) => {
   try {
     const response = await api.delete(`/knowledge/documents/${docId}`);
     return response.data;

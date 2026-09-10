@@ -9,7 +9,6 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { PageContainer } from '../../../components/layout/PageContainer';
 import { PageBody } from '../../../components/layout/PageBody';
 import { DataTable } from '../../../components/ui/DataTable';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { Modal } from '../../../components/ui/Modal';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { SearchBar } from '../../../components/ui/SearchBar';
@@ -67,7 +66,6 @@ export const MessageTemplates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [currentPage, setCurrentPage] = useState(1);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTemplate, setEditTemplate] = useState<MessageTemplate | null>(null);
@@ -221,11 +219,11 @@ export const MessageTemplates = () => {
       <PageBody>
         <div className="bg-white dark:bg-dark-card rounded-xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden p-6">
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} placeholder="Buscar plantillas..." />
+            <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); }} placeholder="Buscar plantillas..." />
             <div className="flex items-center gap-2 shrink-0">
               <Dropdown
                 value={filterCategory}
-                onChange={(v) => { setFilterCategory(v); setCurrentPage(1); }}
+                onChange={(v) => { setFilterCategory(v); }}
                 options={[
                   { value: 'all', label: 'Todas las Categorías' },
                   { value: 'transactional', label: 'Transaccional' },

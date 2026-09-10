@@ -19,32 +19,6 @@ import { Dropdown } from '../../../components/ui/Dropdown';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { ViewToggle, ViewMode } from '../../../components/ui/ViewToggle';
 import { useNotifications } from '../../../contexts/NotificationContext';
-import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger, FaTiktok } from 'react-icons/fa';
-
-const TAG_COLORS = [
-  'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-800/50',
-  'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-800/50',
-  'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-800/50',
-  'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-800/50',
-  'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-800/50',
-  'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-800/50',
-];
-
-const PLATFORM_ICONS: Record<string, any> = {
-  whatsapp: FaWhatsapp,
-  telegram: FaTelegram,
-  instagram: FaInstagram,
-  messenger: FaFacebookMessenger,
-  tiktok: FaTiktok
-};
-
-const PLATFORM_COLORS: Record<string, string> = {
-  whatsapp: 'bg-emerald-500 text-white',
-  telegram: 'bg-sky-500 text-white',
-  instagram: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 text-white',
-  messenger: 'bg-blue-600 text-white',
-  tiktok: 'bg-black text-white'
-};
 
 const CATEGORY_ICONS: Record<string, any> = {
   sales: DollarSign,
@@ -200,14 +174,6 @@ export const FlowManager = () => {
       category: tpl.category as any,
       triggers: tpl.triggers,
     }));
-  };
-
-  const stats = {
-    total: flows.length,
-    active: flows.filter(f => f.status === 'active').length,
-    draft: flows.filter(f => f.status === 'draft').length,
-    totalConversations: flows.reduce((acc, f) => acc + (f.metrics?.conversations || 0), 0),
-    avgCompletionRate: flows.length > 0 ? Math.round(flows.reduce((acc, f) => acc + (f.metrics?.completionRate || 0), 0) / flows.length) : 0
   };
 
   const paginatedFlows = filteredAndSortedFlows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

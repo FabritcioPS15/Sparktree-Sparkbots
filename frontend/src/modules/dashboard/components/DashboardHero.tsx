@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Play, Activity, AlertCircle } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';

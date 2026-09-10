@@ -36,7 +36,7 @@ export const Layout = ({ children, fullWidth = false, noPadding = false, noHeade
           {!noHeader && <Header onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />}
 
           <main className={`flex-1 overflow-y-auto overflow-x-hidden relative z-10 min-h-0 transition-all duration-300 ${noPadding ? '' : ''}`}>
-            <div className="w-full h-full mx-auto flex flex-col flex-1 min-h-0 layout-container">
+            <div className={`w-full h-full mx-auto flex flex-col flex-1 min-h-0 ${fullWidth ? '' : 'layout-container'}`}>
               {children}
             </div>
           </main>

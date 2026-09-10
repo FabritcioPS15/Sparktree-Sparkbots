@@ -1,4 +1,3 @@
-import React from 'react';
 import { List, LayoutGrid } from 'lucide-react';
 import { cn } from '../../utils/cn';
 

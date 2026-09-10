@@ -19,15 +19,6 @@ const variantStyles: Record<string, string> = {
   info: 'bg-[rgb(var(--badge-info)/0.12)] text-[rgb(var(--badge-info))] dark:text-[rgb(var(--badge-info))] border border-[rgb(var(--badge-info)/0.25)]',
 };
 
-const solidVariants: Record<string, string> = {
-  primary: 'bg-accent-500 text-black',
-  success: 'bg-emerald-500 text-white',
-  warning: 'bg-amber-500 text-white',
-  danger: 'bg-red-500 text-white',
-  info: 'bg-blue-500 text-white',
-  default: 'bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900',
-};
-
 const sizeStyles: Record<string, string> = {
   xs: 'px-1.5 py-0.5 text-[8px]',
   sm: 'px-2 py-0.5 text-[9px]',

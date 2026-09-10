@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  Plus, Search, Trash2, Edit, BookOpen,
-  Upload, Link, FileText, Database, ChevronRight,
-  Play, Check, X
+  Plus, Search, Trash2,
+  Upload, Link, FileText, Database,
+  Play
 } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
-import { KebabMenu } from '../../../components/ui/KebabMenu';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { getKnowledgeBases, createKnowledgeBase, deleteKnowledgeBase, getKnowledgeDocuments, addDocument, deleteDocument, ragQuery } from '../../../services/api';
@@ -76,9 +75,9 @@ export const KnowledgeBases = () => {
       setShowCreate(false);
       setNewName('');
       setNewDesc('');
-      addNotification?.({ type: 'success', title: 'Base de conocimiento creada' });
+      addNotification?.({ type: 'success', title: 'Base de conocimiento creada', message: `Se creó "${newName}".` });
     } catch (err) {
-      addNotification?.({ type: 'error', title: 'Error al crear base de conocimiento' });
+      addNotification?.({ type: 'error', title: 'Error al crear base de conocimiento', message: 'No se pudo crear la base.' });
     }
   };
 
@@ -88,9 +87,9 @@ export const KnowledgeBases = () => {
       await deleteKnowledgeBase(deleteTarget);
       setBases(prev => prev.filter(b => b.id !== deleteTarget));
       if (selectedBase?.id === deleteTarget) setSelectedBase(null);
-      addNotification?.({ type: 'success', title: 'Base eliminada' });
+      addNotification?.({ type: 'success', title: 'Base eliminada', message: 'La base se eliminó correctamente.' });
     } catch (err) {
-      addNotification?.({ type: 'error', title: 'Error al eliminar' });
+      addNotification?.({ type: 'error', title: 'Error al eliminar', message: 'No se pudo eliminar la base.' });
     } finally {
       setDeleteTarget(null);
     }
@@ -125,10 +124,10 @@ export const KnowledgeBases = () => {
       setDocTitle('');
       setDocContent('');
       setDocUrl('');
-      addNotification?.({ type: 'success', title: 'Documento agregado' });
+      addNotification?.({ type: 'success', title: 'Documento agregado', message: 'El documento se agregó correctamente.' });
       selectBase(selectedBase);
     } catch (err) {
-      addNotification?.({ type: 'error', title: 'Error al agregar documento' });
+      addNotification?.({ type: 'error', title: 'Error al agregar documento', message: 'No se pudo agregar el documento.' });
     }
   };
 
@@ -137,10 +136,10 @@ export const KnowledgeBases = () => {
     try {
       await deleteDocument(selectedBase.id, deleteDocTarget);
       setDocuments(prev => prev.filter(d => d.id !== deleteDocTarget));
-      addNotification?.({ type: 'success', title: 'Documento eliminado' });
+      addNotification?.({ type: 'success', title: 'Documento eliminado', message: 'El documento se eliminó correctamente.' });
       selectBase(selectedBase);
     } catch (err) {
-      addNotification?.({ type: 'error', title: 'Error al eliminar documento' });
+      addNotification?.({ type: 'error', title: 'Error al eliminar documento', message: 'No se pudo eliminar el documento.' });
     } finally {
       setDeleteDocTarget(null);
     }
@@ -153,7 +152,7 @@ export const KnowledgeBases = () => {
       const result = await ragQuery({ knowledgeBaseId: selectedBase.id, query: ragQuery_text });
       setRagResult(result);
     } catch (err) {
-      addNotification?.({ type: 'error', title: 'Error en consulta RAG' });
+      addNotification?.({ type: 'error', title: 'Error en consulta RAG', message: 'No se pudo procesar la consulta.' });
     } finally {
       setRagLoading(false);
     }

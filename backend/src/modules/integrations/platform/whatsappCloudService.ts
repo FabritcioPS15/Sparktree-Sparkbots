@@ -58,11 +58,12 @@ export class WhatsAppCloudService extends BasePlatformService {
       displayName: connectionData.display_name,
       platformAccountId: phoneNumberId,
       status: connectionData.status || 'disconnected',
-      config: {
-        phoneNumberId,
-        accessToken,
-        webhookVerifyToken,
-      },
+config: {
+          phoneNumberId,
+          accessToken,
+          webhookVerifyToken,
+          ...((connectionData.config?.waba_id || connectionData.waba_id) ? { waba_id: connectionData.config?.waba_id || connectionData.waba_id } : {}),
+        },
       lastConnectedAt: connectionData.last_connected_at ? new Date(connectionData.last_connected_at) : undefined,
     };
 
@@ -264,6 +265,11 @@ export class WhatsAppCloudService extends BasePlatformService {
         const phoneNumber = to.includes('@') ? to.split('@')[0] : to;
         const url = `https://graph.facebook.com/v21.0/${config.phoneNumberId}/messages`;
         
+        const textPayload: any = { body };
+        if (/(https?:\/\/|www\.)\S+/i.test(body || '')) {
+          textPayload.preview_url = true;
+        }
+
         const response = await axios({
           method: 'POST',
           url,
@@ -275,7 +281,7 @@ export class WhatsAppCloudService extends BasePlatformService {
             messaging_product: 'whatsapp',
             to: phoneNumber,
             type: 'text',
-            text: { body },
+            text: textPayload,
           },
         });
 
@@ -317,10 +323,11 @@ export class WhatsAppCloudService extends BasePlatformService {
         return `${bodyText}\n\n${numberedOptions}${backLine}\n\nResponde con el número de tu opción`;
       };
 
-      // Si hay más de 3 opciones reales (sin contar "Volver"), envía lista numerada
-      // de texto. El list message de Meta soporta hasta 10 filas pero el botón
-      // "Volver" ya está mapeado y se incluye en la numeración.
-      if (originalButtons.length > 3) {
+      // Meta "list" interactive soporta hasta 10 filas por sección. Se usa para
+      // menús de hasta 10 opciones ("Ver opciones") porque es mucho más cómodo de
+      // leer que la lista numerada de texto. Solo se cae a texto numerado cuando
+      // el menú supera las 10 opciones (buildListInteractive particiona en secciones).
+      if (allButtons.length > 10) {
         const numberedMessage = buildNumberedText();
         const numberedResponse = await axios({
           method: 'POST',
@@ -371,6 +378,49 @@ export class WhatsAppCloudService extends BasePlatformService {
           },
         };
       };
+
+      // Meta "button" interactive con quick replies nativos (máx. 3 botones).
+      // Mucho más cómodo para menús cortos (p.ej. confirmación Sí/No o hasta 3
+      // opciones), y de paso le da los botones "reales" clickeables de WhatsApp.
+      const buildNativeButtons = () => ({
+        type: 'button',
+        header: { type: 'text', text: catalogTitle.substring(0, 60) },
+        body: { text: (bodyText || '').substring(0, 1024) },
+        action: {
+          buttons: allButtons.map((btn, index) => ({
+            type: 'reply',
+            reply: {
+              id: btn.id || `btn_${index}`,
+              title: (btn.title || btn.text || `Opción ${index + 1}`).substring(0, 20),
+            },
+          })),
+        },
+      });
+
+      // Probamos primero botones nativos (<=3 opciones). Si Meta los rechaza
+      // (p.ej. sesión fuera de 24h), caemos al listado interactivo.
+      if (allButtons.length <= 3) {
+        try {
+          const response = await axios({
+            method: 'POST',
+            url,
+            headers: {
+              'Authorization': `Bearer ${config.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            data: {
+              messaging_product: 'whatsapp',
+              to: phoneNumber,
+              type: 'interactive',
+              interactive: buildNativeButtons(),
+            },
+          });
+          return { ...response.data, buttonMapping, isNumericButtons: false };
+        } catch (error: any) {
+          const metaErr = error?.response?.data?.error;
+          console.warn(`[WhatsApp Cloud] Native buttons FAILED (${metaErr ? `${metaErr.code}: ${metaErr.message}` : error.message}). Falling back to list interactive.`);
+        }
+      }
 
       // Try sending the native list interactive message.
       try {
@@ -626,18 +676,71 @@ export class WhatsAppCloudService extends BasePlatformService {
   /** Obtiene el WABA ID a partir del Phone Number ID */
   private async getWabaId(connection: PlatformConnection): Promise<string> {
     const { phoneNumberId, accessToken } = connection.config;
+
+    // Fuente 1: WABA guardado directamente en la config de la conexión
+    const fromConfig = (connection.config as any)?.waba_id || (connection as any)?.waba_id || (connection as any)?.config?.wabaId;
+    if (fromConfig) {
+      console.log(`[WhatsApp Cloud] WABA ID from config: ${fromConfig}`);
+      return fromConfig;
+    }
+
+    // Fuente 2: WABA reportado por el webhook (eventos account_update persistidos)
     try {
-      const phoneInfo = await axios.get(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const wabaId = phoneInfo.data?.whatsapp_business_account_id;
-      if (!wabaId) {
-        console.error(`[WhatsApp Cloud] No WABA ID found. Phone Number ID: ${phoneNumberId}, response:`, JSON.stringify(phoneInfo.data));
-        throw new Error('No se encontró el WABA ID para este número. Verifica que el Phone Number ID sea correcto.');
+      const { data: events } = await supabase
+        .from('platform_webhook_events')
+        .select('waba_id, created_at')
+        .eq('platform', 'whatsapp')
+        .not('waba_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const wabaFromEvents = events?.[0]?.waba_id;
+      if (wabaFromEvents) {
+        console.log(`[WhatsApp Cloud] WABA ID from webhook events: ${wabaFromEvents}`);
+        return wabaFromEvents;
       }
-      console.log(`[WhatsApp Cloud] WABA ID resolved: ${wabaId} for Phone Number ID: ${phoneNumberId}`);
-      return wabaId;
+    } catch (e: any) {
+      console.warn('[WhatsApp Cloud] Could not read waba_id from webhook events:', e?.message || e);
+    }
+
+    // Fuente 3: resolver vía Graph API
+    // Intento 1: nodo del phone number (sin el campo deprecado)
+    const tryDirect = async (): Promise<string | null> => {
+      try {
+        const phoneInfo = await axios.get(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { fields: 'id' },
+          }
+        );
+        return phoneInfo.data?.whatsapp_business_account_id || null;
+      } catch {
+        return null;
+      }
+    };
+
+    // Intento 2: sub-recurso oficial del número → WABA
+    const trySubEntity = async (): Promise<string | null> => {
+      try {
+        const sub = await axios.get(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_account`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        const data = sub.data || {};
+        return data?.id || data?.data?.[0]?.id || data?.whatsapp_business_account_id || null;
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      const wabaId = (await tryDirect()) || (await trySubEntity());
+      if (wabaId) {
+        console.log(`[WhatsApp Cloud] WABA ID resolved: ${wabaId} for Phone Number ID: ${phoneNumberId}`);
+        return wabaId;
+      }
+      console.error(`[WhatsApp Cloud] No WABA ID found. Phone Number ID: ${phoneNumberId}. Ambos métodos de resolución fallaron.`);
+      throw new Error('No se encontró el WABA ID para este número. Verifica el Phone Number ID y el Access Token.');
     } catch (err: any) {
       const metaError = err?.response?.data?.error;
       if (metaError) {

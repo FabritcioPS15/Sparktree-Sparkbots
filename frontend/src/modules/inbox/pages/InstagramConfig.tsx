@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FaInstagram } from 'react-icons/fa';
 import {
-  CheckCircle, AlertTriangle, RefreshCw, LogOut, Info, User,
+  CheckCircle, AlertTriangle, LogOut, Info,
   Layers, Shield, Settings, Eye, EyeOff
 } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
@@ -21,7 +21,7 @@ const prerequisites = [
 
 export const InstagramConfig = () => {
   const { addNotification } = useNotifications();
-  const { addConnection, removeConnection, getConnectionByPlatform, isConnecting } = useConnections();
+  const { addConnection, removeConnection, getConnectionByPlatform } = useConnections();
   const existingConnection = getConnectionByPlatform('instagram');
 
   const [showForm, setShowForm] = useState(!existingConnection);
@@ -117,9 +117,9 @@ export const InstagramConfig = () => {
 
           {/* ── CONECTADO ── */}
           {isConnected && !showForm && (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-6">
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4">
                   <div className="relative">
                     <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-pink-500/20">
                       <FaInstagram size={34} color="white" />
@@ -142,7 +142,7 @@ export const InstagramConfig = () => {
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30 mb-6">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30 mb-4">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                     <Layers className="w-3 h-3" /> ID de Cuenta IG Business
                   </p>
@@ -172,12 +172,12 @@ export const InstagramConfig = () => {
 
           {/* ── ERROR DE TOKEN ── */}
           {hasError && !showForm && (
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-amber-200 dark:border-amber-900/30 shadow-sm p-6 text-center">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-amber-200 dark:border-amber-900/30 shadow-sm p-5 text-center">
               <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-amber-500" />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Error de Verificación</h3>
-              <p className="text-sm text-slate-500 mb-6">El Access Token no es válido o los permisos son insuficientes. Verifica tus credenciales.</p>
+              <p className="text-sm text-slate-500 mb-4">El Access Token no es válido o los permisos son insuficientes. Verifica tus credenciales.</p>
               <button onClick={() => setShowForm(true)}
                 className="inline-flex items-center gap-2 h-11 px-8 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg">
                 <Settings className="w-4 h-4" /> Reconfigurar Credenciales
@@ -187,7 +187,7 @@ export const InstagramConfig = () => {
 
           {/* ── FORMULARIO DE CONFIGURACIÓN ── */}
           {showForm && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Requisitos */}
               <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-5">
@@ -212,8 +212,8 @@ export const InstagramConfig = () => {
               </div>
 
               {/* Formulario */}
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                <div className="flex items-center gap-3 mb-6">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+                <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                     <FaInstagram size={20} color="white" />
                   </div>

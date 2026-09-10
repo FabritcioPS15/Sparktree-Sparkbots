@@ -50,7 +50,7 @@ router.get('/:id', async (req: any, res: any) => {
     res.json({ ...campaign, ...contacts });
   } catch (err: any) {
     console.error('[Campaigns] Error fetching campaign:', err);
-    res.status(404).json({ error: 'Campaña no encontrada' });
+    res.status(404).json({ error: 'Campaña no encontrada' }); 
   }
 });
 

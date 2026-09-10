@@ -1,4 +1,4 @@
-import { Bot, Sparkles, UserCheck, Smartphone, MessageSquare } from 'lucide-react';
+import { Bot, Sparkles, Smartphone, MessageSquare } from 'lucide-react';
 
 export interface FlowTemplate {
   id: string;

@@ -27,13 +27,11 @@ type SortOrder = 'asc' | 'desc';
 
 // Dropdown de 3 Puntos para las acciones del cliente
 const ClientActionsDropdown = ({
-  user,
   onViewChat,
   onAssignAgent,
   onEdit,
   onDelete,
 }: {
-  user: any;
   onViewChat: () => void;
   onAssignAgent: () => void;
   onEdit: () => void;
@@ -151,9 +149,8 @@ export const Clients = () => {
 
   // Filtros
   const [filterChannel, setFilterChannel] = useState('all');
-  const [filterAgent, setFilterAgent] = useState('all');
+  const [filterAgent] = useState('all');
   const [filterState, setFilterState] = useState('all');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [systemAgents, setSystemAgents] = useState<any[]>([]);
 
   // Modales
@@ -332,16 +329,6 @@ export const Clients = () => {
       'correo': 'email'
     };
     return channelMapping[normalizedChannel] || normalizedChannel;
-  };
-
-  const activeAdvancedFiltersCount = (filterAgent !== 'all' ? 1 : 0) + (filterState !== 'all' ? 1 : 0);
-
-  const clearAllFilters = () => {
-    setFilterChannel('all');
-    setFilterAgent('all');
-    setFilterState('all');
-    setSearchTerm('');
-    setCurrentPage(1);
   };
 
   const filteredUsers = (users || []).filter(user => {
@@ -639,7 +626,6 @@ export const Clients = () => {
                 {
                   element: (
                     <ClientActionsDropdown
-                      user={user}
                       onViewChat={() => navigate('/conversations')}
                       onAssignAgent={() => {
                         setSelectedAgentForAssign(user.assigned_to || user.assigned_agent?.id || '');

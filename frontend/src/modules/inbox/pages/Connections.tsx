@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Plus, CheckCircle, XCircle, ArrowRight, Sun, Moon, Plug, PlugZap, Wifi, WifiOff } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, ArrowRight, Plug, PlugZap, WifiOff } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger, FaTiktok } from "react-icons/fa";
 import { useConnections } from '../../../contexts/ConnectionsContext';
 import { useNotifications } from '../../../contexts/NotificationContext';
-import { useTheme } from '../../../contexts/ThemeContext';
 import { cn } from '../../../utils/cn';
 import { PageContainer } from '../../../components/layout/PageContainer';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -81,56 +80,55 @@ export const Connections = () => {
         isLoading={disconnecting}
       />
       <PageHeader
-        title="Gestión de"
-        highlight="Conexiones"
+        title="Conexiones"
         description="Gestiona tus integraciones con redes sociales"
         icon={PlugZap}
       />
 
       <PageBody>
-        <div className="mb-8 p-4 bg-gradient-to-r from-accent-500/10 to-accent-500/5 border border-accent-500/20 rounded-xl flex items-start gap-3">
-          <Plug className="w-5 h-5 text-accent-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-slate-700 dark:text-slate-300">
-            <span className="text-accent-600 dark:text-accent-500 font-black uppercase text-[10px] tracking-widest">Los bots y automatizaciones (flows) funcionan para todas las redes sociales.</span>
-            <br />Una vez conectada una plataforma, puedes usar el <Link to="/builder" className="text-accent-500 hover:text-accent-400 font-bold underline underline-offset-2">Constructor de Bots</Link> para crear automatizaciones que funcionen en todas tus conexiones.
+        <div className="mb-4 p-3 bg-gradient-to-r from-accent-500/10 to-accent-500/5 border border-accent-500/20 rounded-xl flex items-start gap-3">
+          <Plug className="w-4 h-4 text-accent-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-slate-700 dark:text-slate-300">
+            <span className="text-accent-600 dark:text-accent-500 font-black uppercase text-[10px] tracking-widest">Los bots y automatizaciones funcionan para todas las redes sociales.</span>
+            <br />Una vez conectada una plataforma, puedes usar el <Link to="/builder" className="text-accent-500 hover:text-accent-400 font-bold underline underline-offset-2">Constructor de Bots</Link> para crear automatizaciones en todas tus conexiones.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {platforms.map((platform) => {
             const Icon = platform.icon;
             const connection = connections.find(c => c.platform_type === platform.id);
 
             return (
-              <div key={platform.id} className="group bg-white dark:bg-dark-card/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-200 dark:border-slate-800/50 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
+              <div key={platform.id} className="group bg-white dark:bg-dark-card/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 dark:border-slate-800/50 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br ${platform.color} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500`} />
                 <div className="absolute -right-6 -top-6 w-20 h-20 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
 
-                <div className="flex items-start justify-between mb-4 relative z-10">
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${platform.color} ${platform.shadow} shadow-lg`}>
-                    <Icon size={22} color="white" />
+                <div className="flex items-start justify-between mb-3 relative z-10">
+                  <div className={`p-2.5 rounded-xl bg-gradient-to-br ${platform.color} ${platform.shadow} shadow-lg`}>
+                    <Icon size={20} color="white" />
                   </div>
                   {connection && getStatusIcon(connection.status)}
                 </div>
 
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-1 relative z-10">{platform.name}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 relative z-10">{platform.description}</p>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-0.5 relative z-10">{platform.name}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 relative z-10">{platform.description}</p>
 
                 {connection ? (
-                  <div className="mb-4 p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50 relative z-10">
-                    <div className="flex items-center justify-between">
+                  <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50 relative z-10">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{connection.display_name}</span>
                       <span className={cn(
-                        'text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md',
+                        'text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shrink-0',
                         connection.status === 'connected' ? 'bg-accent-500/10 text-accent-500' :
                           connection.status === 'connecting' ? 'bg-amber-500/10 text-amber-500' :
                             connection.status === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-slate-500/10 text-slate-500'
                       )}>{getStatusText(connection.status)}</span>
                     </div>
-                    {connection.phone_number && <p className="text-xs text-slate-400 mt-1">{connection.phone_number}</p>}
+                    {connection.phone_number && <p className="text-xs text-slate-400 mt-0.5 truncate">{connection.phone_number}</p>}
                   </div>
                 ) : (
-                  <div className="mb-4 p-3.5 bg-slate-50 dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 relative z-10">
+                  <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 relative z-10">
                     <p className="text-xs text-slate-400 text-center font-semibold">Sin conexión activa</p>
                   </div>
                 )}

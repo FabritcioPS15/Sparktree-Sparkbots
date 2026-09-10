@@ -1,6 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../config/supabase';
 
+// Caché en memoria del usuario autenticado (evita 1 round-trip a Supabase por request).
+// El frontend manda el GUID en X-User-ID, así que cambiar el perfil es infrecuente;
+// se invalida automáticamente al cabo de 60s.
+const MEMO_TTL_MS = 60 * 1000;
+const userMemo = new Map<string, { user: any; expiresAt: number }>();
+
+export function getCachedUser(userId: string): any | undefined {
+  const entry = userMemo.get(userId);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    userMemo.delete(userId);
+    return undefined;
+  }
+  return entry.user;
+}
+
+export async function fetchUser(userId: string): Promise<any | null> {
+  const cached = getCachedUser(userId);
+  if (cached) return cached;
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error || !user) return null;
+
+  userMemo.set(userId, { user, expiresAt: Date.now() + MEMO_TTL_MS });
+  return user;
+}
+
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
@@ -28,13 +60,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       return res.status(401).json({ error: 'Unauthorized', hint: 'Incluye el header X-User-ID' });
     }
 
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const user = await fetchUser(userId);
 
-    if (error || !user) {
+    if (!user) {
       return res.status(401).json({ error: 'Unauthorized', hint: 'Usuario no encontrado' });
     }
 

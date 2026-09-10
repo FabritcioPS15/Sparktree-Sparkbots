@@ -1,6 +1,6 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ExternalLink, ArrowUpRight, ChevronDown, Bot, Plus } from 'lucide-react';
+import { Activity, ExternalLink, ArrowUpRight, ChevronDown, Bot } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { cn } from '../../../utils/cn';
 import { getFlows } from '../../../services/api';
@@ -12,10 +12,10 @@ interface ConnectionLayoutProps {
 
 export const ConnectionLayout = ({ children, sidebar }: ConnectionLayoutProps) => (
   <div className="flex-1 bg-white dark:bg-dark-card/50 backdrop-blur-md rounded-2xl border border-gray-100 dark:border-gray-800/50 shadow-lg flex flex-col min-h-0">
-    <div className="flex-1 p-5 lg:p-8 overflow-y-auto custom-scrollbar">
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full">
-        <div className="xl:col-span-3 space-y-6">{children}</div>
-        {sidebar && <div className="xl:col-span-2 space-y-6">{sidebar}</div>}
+    <div className="flex-1 p-5 lg:p-6 overflow-y-auto custom-scrollbar">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 h-full">
+        <div className="xl:col-span-3 space-y-4">{children}</div>
+        {sidebar && <div className="xl:col-span-2 space-y-4">{sidebar}</div>}
       </div>
     </div>
   </div>
@@ -29,8 +29,8 @@ interface FormCardProps {
 }
 
 export const FormCard = ({ icon, title, children, className }: FormCardProps) => (
-  <div className={cn("p-6 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-300", className)}>
-    <div className="flex items-center gap-3 mb-6">
+  <div className={cn("p-5 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-300", className)}>
+    <div className="flex items-center gap-3 mb-4">
       {icon}
       <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">{title}</h4>
     </div>
@@ -48,8 +48,8 @@ interface ConnectedHeroProps {
 }
 
 export const ConnectedHero = ({ icon, name, subtitle, details, onDisconnect, loading }: ConnectedHeroProps) => (
-  <div className="p-6 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm">
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 mb-6">
+  <div className="p-5 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
       <div className="relative">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden">
           {icon}
@@ -70,9 +70,9 @@ export const ConnectedHero = ({ icon, name, subtitle, details, onDisconnect, loa
     </div>
 
     {details && details.length > 0 && (
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         {details.map((detail, i) => (
-          <div key={i} className="p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30">
+          <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{detail.label}</p>
             <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{detail.value}</p>
           </div>
@@ -141,8 +141,8 @@ export const EcosystemStatus = ({ platform }: EcosystemStatusProps) => {
     .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i);
 
   return (
-    <div className="p-5 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-4 bg-white dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
         <div className="p-2.5 bg-gradient-to-br from-accent-500 to-accent-600 rounded-xl shadow-lg shadow-accent-500/20">
           <Activity className="w-4 h-4 text-white" />
         </div>
@@ -152,7 +152,7 @@ export const EcosystemStatus = ({ platform }: EcosystemStatusProps) => {
         </div>
       </div>
 
-      <div className="space-y-2 mb-5">
+      <div className="space-y-2 mb-4">
         {activeBotTypes.map((label, i) => (
           <div key={i} className="flex items-center gap-2.5 p-2.5 bg-accent-50 dark:bg-accent-500/10 rounded-xl border border-accent-200 dark:border-accent-500/20">
             <div className="relative">
@@ -296,14 +296,14 @@ export const HelpCard = ({ title, steps, docUrl, docLabel, variant = 'accent' }:
 
   return (
     <div className={`${cardClass} rounded-2xl border overflow-hidden`}>
-      <button onClick={() => setOpen(!open)} className="w-full p-5 flex items-center justify-between gap-3 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+      <button onClick={() => setOpen(!open)} className="w-full p-3.5 flex items-center justify-between gap-3 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
         <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
           <span className="text-base">📋</span> {title}
         </h4>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
       </button>
       <div className={`transition-all duration-300 overflow-hidden ${open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-5 pb-5">
+        <div className="px-3.5 pb-3.5">
           <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed list-decimal list-inside">
             {steps.map((step, i) => (
               <li key={i} className="text-slate-600 dark:text-slate-400">{step}</li>

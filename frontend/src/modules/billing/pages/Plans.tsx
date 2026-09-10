@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, CreditCard, AlertTriangle, Zap, Building2, Sparkles } from 'lucide-react';
+import { Check, CreditCard, AlertTriangle, Zap, Building2, Sparkles } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { PageBody } from '../../../components/layout/PageBody';
@@ -205,7 +205,7 @@ export const Plans = () => {
 
           {/* Plan Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {plans.map((plan, idx) => {
+            {plans.map((plan) => {
               const isCurrent = plan.id === currentPlanId;
               const Icon = planIcons[plan.name.toLowerCase()] || Sparkles;
 

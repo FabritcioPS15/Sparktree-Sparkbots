@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FaFacebookMessenger, FaInstagram, FaFacebook } from 'react-icons/fa';
 import {
-  CheckCircle, XCircle, AlertTriangle, ExternalLink, RefreshCw,
+  CheckCircle, AlertTriangle, RefreshCw,
   LogOut, ArrowRight, Info, Clock, Layers, Shield, MessageSquare
 } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
@@ -38,7 +38,7 @@ const prerequisites = [
 
 export const FacebookConfig = () => {
   const { addNotification } = useNotifications();
-  const { addConnection, removeConnection, getConnectionByPlatform, isConnecting } = useConnections();
+  const { addConnection, removeConnection, getConnectionByPlatform } = useConnections();
   const existingConnection = getConnectionByPlatform('facebook_messenger');
   const [data, setData] = useState<MessengerData>({
     pageId: '', pageName: '', pageProfilePicUrl: '', status: existingConnection ? 'connected' : 'disconnected',
@@ -164,9 +164,9 @@ export const FacebookConfig = () => {
 
           {/* --- CONNECTED STATE --- */}
           {isConnected && (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-6">
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4">
                   <div className="relative">
                     <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20">
                       <FaFacebookMessenger size={34} color="white" />
@@ -190,7 +190,7 @@ export const FacebookConfig = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                       <Layers className="w-3 h-3" /> Página
@@ -230,14 +230,14 @@ export const FacebookConfig = () => {
 
           {/* --- TOKEN EXPIRED STATE --- */}
           {isExpired && (
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-6 text-center">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-5 text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-red-500" />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Token Vencido</h3>
               <p className="text-sm text-slate-500 mb-2">El acceso a Messenger ha expirado. Reconecta tu página para seguir usando la automatización.</p>
               {data.tokenExpiresAt && (
-                <p className="text-xs text-slate-400 mb-6">Venció el {new Date(data.tokenExpiresAt).toLocaleDateString('es-ES')}</p>
+                <p className="text-xs text-slate-400 mb-4">Venció el {new Date(data.tokenExpiresAt).toLocaleDateString('es-ES')}</p>
               )}
               <button onClick={handleReconnect}
                 className="inline-flex items-center gap-2 h-11 px-8 bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-[1.01] active:scale-[0.99] shadow-lg">
@@ -248,8 +248,8 @@ export const FacebookConfig = () => {
 
           {/* --- SELECTING PAGE --- */}
           {isSelecting && (
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-6">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl shadow-lg">
                   <FaFacebookMessenger size={18} color="white" />
                 </div>
@@ -259,7 +259,7 @@ export const FacebookConfig = () => {
                 </div>
               </div>
 
-              <div className="space-y-3 mb-6">
+              <div className="space-y-3 mb-4">
                 {mockPages.map(page => (
                   <button
                     key={page.id}
@@ -324,12 +324,12 @@ export const FacebookConfig = () => {
               </div>
 
               {/* Connect button */}
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-blue-500/20">
                   <FaFacebookMessenger size={28} color="white" />
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Conectar Messenger</h3>
-                <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
                   Autoriza el acceso para empezar a automatizar los mensajes de tu página de Facebook.
                 </p>
 

@@ -1,7 +1,6 @@
 import React from 'react';
 import { DashboardCard } from './DashboardCard';
 import { Activity, UserPlus, MessageSquare, Zap, Link } from 'lucide-react';
-import { cn } from '../../../utils/cn';
 
 interface ActivityItem {
   type: 'user' | 'message' | 'flow' | 'channel';

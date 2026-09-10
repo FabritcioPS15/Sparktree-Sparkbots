@@ -261,7 +261,6 @@ export const Reminders = () => {
     printWindow.document.close();
   };
 
-  const statusLabel = (status: string) => reminderStatusMeta[status]?.label || status;
   const statusVariant = (status: string) => (reminderStatusMeta[status]?.variant as any) || 'default';
   const canSend = (r: Reminder) => r.status !== 'sending' && r.total > 0;
 

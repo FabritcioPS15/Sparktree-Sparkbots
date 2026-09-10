@@ -3,17 +3,17 @@ import { Mail } from 'lucide-react';
 
 export const EmailNode = ({ data }: any) => {
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-sky-200 dark:border-sky-900/50 w-64 overflow-hidden transition-all hover:shadow-sky-500/10 group node-container">
-      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-sky-400 group-hover:!bg-sky-500" />
+    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-accent-200 dark:border-accent-900/50 w-64 overflow-hidden transition-all hover:shadow-accent-500/10 group node-container">
+      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
       <div className="bg-black dark:bg-gray-900 px-4 py-3 flex items-center gap-2">
-        <Mail className="w-4 h-4 text-sky-400" />
+        <Mail className="w-4 h-4 text-accent-400" />
         <h3 className="font-black text-[10px] text-white uppercase tracking-widest">Enviar Correo</h3>
       </div>
-      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-sky-50/30 dark:group-hover:bg-sky-950/20 transition-colors">
+      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-accent-50/30 dark:group-hover:bg-accent-950/20 transition-colors">
         {data.toEmail ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] font-black text-sky-500 uppercase tracking-widest">Para:</span>
+              <span className="text-[8px] font-black text-accent-500 uppercase tracking-widest">Para:</span>
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">{data.toEmail}</span>
             </div>
             {data.subject && (
@@ -28,7 +28,7 @@ export const EmailNode = ({ data }: any) => {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-sky-400 group-hover:!bg-sky-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
     </div>
   );
 };

@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../../core/config/supabase';
 import { multiWhatsAppService } from '../integrations/multiWhatsAppService';
 import { whatsappCloudService } from '../integrations/platform/whatsappCloudService';
+import { auditLogService } from '../audit/auditLogService';
 
 const router = express.Router();
 
@@ -31,40 +32,66 @@ router.get('/', async (req, res) => {
       return res.json([]);
     }
 
-    // 2. Fetch assigned agents for these conversations
-    const assignedUserIds = Array.from(new Set(conversations.map((c: any) => c.assigned_to).filter(Boolean)));
-    const agentMap = new Map<string, any>();
-    if (assignedUserIds.length > 0) {
-      try {
-        const { data: agentsData } = await supabase
-          .from('users')
-          .select('id, name, email, avatar_url')
-          .in('id', assignedUserIds);
-        if (agentsData) {
-          agentsData.forEach((agent: any) => agentMap.set(agent.id, agent));
-        }
-      } catch (e) {
-        console.warn('[Conversations API] Failed to fetch agent info:', e);
-      }
-    }
-
-    // 3. Fetch last message for each conversation in a single query
     const convIds = conversations.map((c: any) => c.id);
-    const { data: lastMessages } = await supabase
-      .from('messages')
-      .select('conversation_id, content, created_at')
-      .in('conversation_id', convIds)
-      .order('created_at', { ascending: false });
+    // Solo importan los mensajes recientes para hallar el último y el no-leídos;
+    // la ventana de 7 días acota el volumen descargado (estos queries se paralelizan)
+    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Build a map: conversationId -> last message content
-    const lastMsgMap = new Map<string, string>();
-    if (lastMessages) {
-      for (const msg of lastMessages) {
-        if (!lastMsgMap.has(msg.conversation_id)) {
-          lastMsgMap.set(msg.conversation_id, msg.content);
+    // 2+3+3.5. Paralelizar la carga de agentes y de mensajes (último + no-leídos)
+    const [agentsResult, messagesResult] = await Promise.all([
+      // Agent names
+      (async () => {
+        const assignedUserIds = Array.from(new Set(conversations.map((c: any) => c.assigned_to).filter(Boolean)));
+        const agentMap = new Map<string, any>();
+        if (assignedUserIds.length > 0) {
+          try {
+            const { data: agentsData } = await supabase
+              .from('users')
+              .select('id, name, email, avatar_url')
+              .in('id', assignedUserIds);
+            if (agentsData) {
+              agentsData.forEach((agent: any) => agentMap.set(agent.id, agent));
+            }
+          } catch (e) {
+            console.warn('[Conversations API] Failed to fetch agent info:', e);
+          }
         }
-      }
-    }
+        return agentMap;
+      })(),
+
+      // 3+3.5. Una sola query devuelve, en orden descendente por fecha, los mensajes
+      // recientes de las conversaciones (acotada a 7 días). Del primer mensaje de cada
+      // conversación se obtiene el contenido del último; el no-leídos se cuentan aquí mismo.
+      (async () => {
+        const { data: msgs, error: msgsErr } = await supabase
+          .from('messages')
+          .select('conversation_id, content, status, direction')
+          .in('conversation_id', convIds)
+          .gte('created_at', since7d)
+          .order('created_at', { ascending: false })
+          .limit(2000);
+        if (msgsErr) {
+          console.warn('[Conversations API] Failed to fetch last messages:', msgsErr);
+          return { lastMsgMap: new Map<string, string>(), unreadMap: new Map<string, number>() };
+        }
+        const lastMsgMap = new Map<string, string>();
+        const unreadMap = new Map<string, number>();
+        if (msgs) {
+          for (const msg of msgs) {
+            if (!lastMsgMap.has(msg.conversation_id)) {
+              lastMsgMap.set(msg.conversation_id, msg.content);
+            }
+            if (msg.direction === 'inbound' && msg.status !== 'read') {
+              unreadMap.set(msg.conversation_id, (unreadMap.get(msg.conversation_id) || 0) + 1);
+            }
+          }
+        }
+        return { lastMsgMap, unreadMap };
+      })(),
+    ]);
+
+    const agentMap = agentsResult;
+    const { lastMsgMap, unreadMap } = messagesResult;
 
     // 4. Format response
     const formattedConversations = conversations.map((conv: any) => {
@@ -91,7 +118,7 @@ router.get('/', async (req, res) => {
         lastMessageAt: conv.last_message_at,
         lastMessageContent: lastMsgMap.get(conv.id) || 'Sin mensajes',
         channel: conv.platform_type || 'whatsapp',
-        unreadCount: 0,
+        unreadCount: unreadMap.get(conv.id) || 0,
         status: conv.status,
         botState: conv.contacts?.bot_state || 'main_menu',
         assignedTo: conv.assigned_to,
@@ -134,6 +161,22 @@ router.get('/:id/messages', async (req, res) => {
       status: msg.status
     }));
 
+    // The agent is viewing this conversation → mark its inbound messages as read
+    // so the "No leídos" count clears (fire-and-forget, non-blocking).
+    void (async () => {
+      try {
+        await supabase
+          .from('messages')
+          .update({ status: 'read' })
+          .eq('conversation_id', req.params.id)
+          .eq('organization_id', orgId)
+          .eq('direction', 'inbound')
+          .neq('status', 'read');
+      } catch (e: any) {
+        console.warn('[Conversations] Failed to mark messages as read:', e?.message);
+      }
+    })();
+
     res.json(formattedMessages);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch messages' });
@@ -150,7 +193,7 @@ router.post('/:id/reactivate-bot', async (req, res) => {
 
     const { data: conversation } = await supabase
       .from('conversations')
-      .select('id, contact_id')
+      .select('id, contact_id, contacts(custom_attributes)')
       .eq('id', id)
       .eq('organization_id', orgId)
       .single();
@@ -159,15 +202,31 @@ router.post('/:id/reactivate-bot', async (req, res) => {
       return res.status(404).json({ error: 'Conversación no encontrada' });
     }
 
+    const currentAttributes = (conversation as any)?.contacts?.custom_attributes || {};
     const { error } = await supabase
       .from('contacts')
-      .update({ bot_state: null })
+      .update({
+        bot_state: null,
+        custom_attributes: { ...currentAttributes, flow_history: [] }
+      })
       .eq('id', conversation.contact_id)
       .eq('organization_id', orgId);
 
     if (error) {
       return res.status(500).json({ error: 'No se pudo reactivar el bot' });
     }
+
+    // Auditoría
+    auditLogService.log({
+      organizationId: orgId,
+      userId: (req as any).user?.id,
+      userEmail: (req as any).user?.email,
+      action: 'REACTIVATE_BOT',
+      resourceType: 'conversation',
+      resourceId: id,
+      details: 'Bot reactivado manualmente en la conversación',
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'localhost'
+    });
 
     res.json({ success: true, message: 'Bot reactivado' });
   } catch (error) {
@@ -343,6 +402,21 @@ router.post('/:id/send', async (req, res) => {
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', id)
       .eq('organization_id', orgId);
+
+    // El agente respondió → marcar inbound como leídos (fire-and-forget)
+    void (async () => {
+      try {
+        await supabase
+          .from('messages')
+          .update({ status: 'read' })
+          .eq('conversation_id', id)
+          .eq('organization_id', orgId)
+          .eq('direction', 'inbound')
+          .neq('status', 'read');
+      } catch (e: any) {
+        console.warn('[Conversations] Failed to mark messages as read on reply:', e?.message);
+      }
+    })();
 
     res.json({
       _id: savedMessage?.id,

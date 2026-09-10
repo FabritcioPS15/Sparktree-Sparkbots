@@ -72,7 +72,7 @@ export const Orders = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const handleCreate = async (customer: string, product: string, amount: string) => {
+  const handleCreate = async (customer: string, _product: string, amount: string) => {
     try {
       const created = await createOrder({
         customer,

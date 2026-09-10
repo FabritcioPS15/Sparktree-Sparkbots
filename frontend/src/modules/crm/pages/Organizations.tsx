@@ -29,14 +29,14 @@ type SortOrder = 'asc' | 'desc';
 
 export const Organizations = () => {
   const [orgs, setOrgs] = useState<any[]>(MOCK_ORGS);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [editingOrg, setEditingOrg] = useState<any>(null);
   const [showPlansInfo, setShowPlansInfo] = useState(false);
   const [formData, setFormData] = useState({ name: '', plan: 'free' });
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [sortField] = useState<SortField>('name');
+  const [sortOrder] = useState<SortOrder>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
@@ -49,40 +49,6 @@ export const Organizations = () => {
     const now = new Date();
     const hoursDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60));
     return { hours: hoursDiff, days: Math.floor(hoursDiff / 24) };
-  };
-
-  const getOrgPlanColor = (plan: string) => {
-    const safePlan = plan || 'free';
-    switch (safePlan.toLowerCase()) {
-      case 'free': return 'text-slate-500 border-slate-200';
-      case 'pro': return 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50';
-      case 'enterprise': return 'text-purple-500 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800/50';
-      default: return 'text-slate-500 border-slate-200';
-    }
-  };
-
-  const getPlanDescription = (plan: string) => {
-    const descriptions: { [key: string]: { title: string; desc: string; features: string[]; limit: string } } = {
-      'free': {
-        title: 'Starter',
-        desc: 'Perfecto para pequeñas empresas que comienzan',
-        features: ['Hasta 5 usuarios', '1,000 mensajes/mes', 'Soporte básico', '1 organización'],
-        limit: 'Ideal para empezar'
-      },
-      'pro': {
-        title: 'Growth',
-        desc: 'Para empresas en crecimiento con mayores necesidades',
-        features: ['Hasta 25 usuarios', '10,000 mensajes/mes', 'Soporte prioritario', '5 organizaciones', 'API básica'],
-        limit: 'Popular para equipos'
-      },
-      'enterprise': {
-        title: 'Global',
-        desc: 'Solución completa para grandes corporaciones',
-        features: ['Usuarios ilimitados', 'Mensajes ilimitados', 'Soporte 24/7', 'Organizaciones ilimitadas', 'API completa', 'SLA garantizado'],
-        limit: 'Máxima capacidad'
-      }
-    };
-    return descriptions[plan] || descriptions['free'];
   };
 
   const handleCreateOrg = (e: React.FormEvent) => {
@@ -111,15 +77,6 @@ export const Organizations = () => {
     if (!deleteTarget) return;
     setOrgs(orgs.filter(org => org.id !== deleteTarget));
     setDeleteTarget(null);
-  };
-
-  const handleSort = (field: SortField) => {
-    if (field === sortField) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
   };
 
   const filteredOrgs = orgs.filter(org => {

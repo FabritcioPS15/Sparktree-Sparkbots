@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Send, Play, Pause, Trash2, Eye, Plus, Megaphone, RefreshCw, AlertTriangle, X, CheckCircle2 } from 'lucide-react';
+import { Send, Play, Pause, Trash2, Eye, Plus, Megaphone, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { HeaderButton } from '../../../components/ui/HeaderButton';
 import { CountBadge } from '../../../components/ui/CountBadge';
@@ -164,7 +164,6 @@ export const Campaigns = () => {
     }
   };
 
-  const statusLabel = (status: string) => campaignStatusMeta[status]?.label || status;
   const statusVariant = (status: string) => (campaignStatusMeta[status]?.variant as any) || 'default';
 
   const canSend = (c: Campaign) => c.status !== 'sending' && c.total > 0;
@@ -305,7 +304,6 @@ export const Campaigns = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((campaign) => {
                   const pct = campaign.total > 0 ? Math.min(100, Math.round(((campaign.sent + campaign.failed) / campaign.total) * 100)) : 0;
-                  const meta = campaignStatusMeta[campaign.status];
                   return (
                     <div
                       key={campaign.id}

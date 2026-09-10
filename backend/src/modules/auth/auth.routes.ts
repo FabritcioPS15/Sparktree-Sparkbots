@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../../core/config/supabase';
+import { auditLogService } from '../audit/auditLogService';
 
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -62,6 +63,17 @@ router.post('/login', async (req, res) => {
     res.json({
       user: userWithFullName,
       organizationId: user.organization_id
+    });
+
+    // Auditoría (no bloqueante, tras respuesta)
+    auditLogService.log({
+      organizationId: user.organization_id,
+      userId: user.id,
+      userEmail: user.email,
+      action: 'LOGIN',
+      resourceType: 'auth',
+      details: `Inicio de sesión de ${user.email}`,
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'localhost'
     });
   } catch (error: any) {
     console.error('[Auth Login] Error:', error);

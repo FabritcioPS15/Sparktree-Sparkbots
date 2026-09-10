@@ -256,6 +256,50 @@ router.patch('/connections/:id/phone', tenantMiddleware, async (req: TenantReque
   }
 });
 
+// PATCH /api/platform/connections/:id/waba - Update WABA ID of a connection
+router.patch('/connections/:id/waba', tenantMiddleware, async (req: TenantRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.organizationId;
+    const { wabaId } = req.body;
+
+    if (!orgId) return res.status(400).json({ error: 'Organization ID required. Add X-Organization-ID header.' });
+    if (!wabaId) return res.status(400).json({ error: 'WABA ID is required' });
+
+    const { data: connection, error: fetchError } = await supabase
+      .from('platform_connections')
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (fetchError || !connection) {
+      return res.status(404).json({ error: 'Connection not found' });
+    }
+
+    const currentConfig = connection.config || {};
+    const { data: updated, error } = await supabase
+      .from('platform_connections')
+      .update({ config: { ...currentConfig, waba_id: wabaId } })
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating connection WABA ID:', error);
+      return res.status(500).json({ error: error.message || 'Failed to update WABA ID' });
+    }
+
+    await whatsappCloudService.initializeConnection(updated);
+
+    res.json({ message: 'WABA ID updated', connection: updated });
+  } catch (error: any) {
+    console.error('Error in /platform/connections/:id/waba:', error);
+    if (!res.headersSent) res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/platform/connections/:id/marketing-eligibility
 router.get('/connections/:id/marketing-eligibility', tenantMiddleware, async (req: TenantRequest, res: Response) => {
   try {
@@ -333,7 +377,7 @@ router.post('/whatsapp-cloud', tenantMiddleware, async (req: TenantRequest, res:
     const userId = (req as any).user?.id
       || (Array.isArray(req.headers['x-user-id']) ? req.headers['x-user-id'][0] : req.headers['x-user-id'])
       || (req as any).userId;
-    const { phoneNumberId, accessToken, displayName, webhookVerifyToken, phoneNumber } = req.body;
+    const { phoneNumberId, accessToken, displayName, webhookVerifyToken, phoneNumber, wabaId } = req.body;
 
     if (!orgId) return res.status(400).json({ error: 'Organization ID required.' });
     if (!phoneNumberId) return res.status(400).json({ error: 'Phone Number ID required' });
@@ -354,6 +398,7 @@ router.post('/whatsapp-cloud', tenantMiddleware, async (req: TenantRequest, res:
           access_token: accessToken,
           webhook_verify_token: webhookVerifyToken || `sparktree_${orgId?.slice(0, 8)}_${Date.now().toString(36)}`,
           phone_number: phoneNumber || null,
+          ...(wabaId ? { waba_id: wabaId } : {}),
         },
         status: 'connected',
         last_connected_at: new Date().toISOString()

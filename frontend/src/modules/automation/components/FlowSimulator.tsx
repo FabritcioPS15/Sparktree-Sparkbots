@@ -31,6 +31,7 @@ const NODE_LABELS: Record<string, string> = {
   trigger:     'Disparador',
   text:        'Mensaje',
   interactive: 'Botones',
+  confirmation: 'Confirmación',
   media:       'Media',
   capture:     'Captura',
   capture_phone: 'Capturar Celular',
@@ -102,6 +103,17 @@ export const FlowSimulator: React.FC<FlowSimulatorProps> = ({ nodes, edges, matc
           buttons: node.data.buttons || [],
         });
 
+      } else if (node.type === 'confirmation') {
+        addMessage({
+          text: node.data.bodyText || node.data.question || '¿Confirmas esta acción?',
+          sender: 'bot',
+          type: 'interactive',
+          timestamp: ts,
+          buttons: [
+            { id: 'confirm_yes', title: node.data.yesLabel || '✅ Sí', text: node.data.yesLabel || '✅ Sí' },
+            { id: 'confirm_no', title: node.data.noLabel || '❌ No', text: node.data.noLabel || '❌ No' },
+          ],
+        });
       } else if (node.type === 'media') {
         addMessage({
           text: node.data.caption || '',
@@ -216,7 +228,7 @@ export const FlowSimulator: React.FC<FlowSimulatorProps> = ({ nodes, edges, matc
         const kbId = node.data.knowledgeBaseId || 'default';
         const queryTemplate = node.data.queryTemplate || '{{message}}';
         const query = queryTemplate.replace(/\{\{message\}\}/g, 'consulta general')
-          .replace(/\{\{(\w+)\}\}/g, (_, v) => capturedVars[v] || `@${v}`);
+          .replace(/\{\{(\w+)\}\}/g, (_: string, v: string) => capturedVars[v] || `@${v}`);
 
         addMessage({
           text: `🔍 Buscando en base de conocimiento "${kbId}": "${query}"`,
@@ -255,8 +267,6 @@ export const FlowSimulator: React.FC<FlowSimulatorProps> = ({ nodes, edges, matc
       } else if (node.type === 'llm') {
         const provider = node.data.provider || 'openai';
         const model = node.data.model || 'gpt-4o-mini';
-        const systemPrompt = (node.data.systemPrompt || 'Eres un asistente útil.').replace(/\{\{(\w+)\}\}/g, (_, v) => capturedVars[v] || `@${v}`);
-        const userPrompt = (node.data.userPrompt || '{{message}}').replace(/\{\{(\w+)\}\}/g, (_, v) => capturedVars[v] || `@${v}`);
 
         addMessage({
           text: `🤖 Consultando ${provider}/${model}...`,
@@ -596,11 +606,9 @@ const MessageBubble: React.FC<{ msg: Message; onButtonClick: (btn: any) => void 
     return (
       <div className={`self-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-400 my-1`}>
         <div className={`px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest text-center border flex items-center gap-2 justify-center ${
-          isDelay   ? 'bg-sky-500/10 border-sky-500/20 text-sky-300' :
-          isWebhook ? 'bg-orange-500/10 border-orange-500/20 text-orange-300' :
-          isHandoff ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' :
-          isCapture ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
-                      'bg-[#182229] border-white/10 text-white/50'
+          isDelay || isWebhook || isHandoff || isCapture
+            ? 'bg-accent-500/10 border-accent-500/20 text-accent-300'
+            : 'bg-[#182229] border-white/10 text-white/50'
         }`}>
           {isDelay   && <Clock className="w-3 h-3 shrink-0" />}
           {isWebhook && <Globe className="w-3 h-3 shrink-0" />}
@@ -653,8 +661,8 @@ const MessageBubble: React.FC<{ msg: Message; onButtonClick: (btn: any) => void 
 
         {/* Capture indicator */}
         {msg.type === 'capture' && msg.variableName && (
-          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-amber-500/15 rounded-sm border border-amber-500/20">
-            <span className="text-[9px] font-black uppercase text-amber-400">Guardará en @{msg.variableName}</span>
+          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-accent-500/15 rounded-sm border border-accent-500/20">
+            <span className="text-[9px] font-black uppercase text-accent-300">Guardará en @{msg.variableName}</span>
           </div>
         )}
 

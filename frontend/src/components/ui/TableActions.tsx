@@ -1,5 +1,4 @@
 import React from 'react';
-import { Edit, Trash2, Eye, Copy, Download, Send, User, MessageSquare, Settings, MoreHorizontal } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 export interface TableAction {
@@ -14,8 +13,6 @@ export interface TableActionsProps {
   actions: TableAction[];
   className?: string;
 }
-
-const iconMap = { Edit, Trash2, Eye, Copy, Download, Send, User, MessageSquare, Settings, MoreHorizontal };
 
 const variantStyles = {
   default: 'text-slate-400 hover:text-accent-500 hover:bg-accent-500/10',

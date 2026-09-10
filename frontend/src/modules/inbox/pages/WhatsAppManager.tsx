@@ -15,7 +15,9 @@ import {
   Copy,
   Key,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Check,
+  X
 } from 'lucide-react';
 import api from '../../../services/api';
 import { getMarketingMessagesEligibility } from '../../../services/api';
@@ -55,6 +57,7 @@ interface CloudConnection {
   config?: {
     phoneNumberId?: string;
     webhookVerifyToken?: string;
+    waba_id?: string;
   };
   created_at: string;
 }
@@ -84,11 +87,14 @@ export const WhatsAppManager = () => {
     accessToken: '',
     webhookVerifyToken: '',
     phoneNumber: '',
+    wabaId: '',
   });
   const [savingCloud, setSavingCloud] = useState(false);
   const [cloudSuccess, setCloudSuccess] = useState<string | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [eligibility, setEligibility] = useState<Record<string, any>>({});
+  const [editingWabaId, setEditingWabaId] = useState<string | null>(null);
+  const [wabaIdDraft, setWabaIdDraft] = useState('');
 
   const WEBHOOK_URL = `${window.location.protocol}//${window.location.hostname.replace('5173', '3001')}/api/webhook`;
 
@@ -156,10 +162,11 @@ export const WhatsAppManager = () => {
         accessToken: cloudForm.accessToken.trim(),
         webhookVerifyToken: cloudForm.webhookVerifyToken.trim() || 'sparktree_webhook',
         phoneNumber: cloudForm.phoneNumber.trim() || null,
+        wabaId: cloudForm.wabaId.trim() || undefined,
       });
       setCloudSuccess('Conexión Cloud API guardada exitosamente.');
       addNotification({ type: 'success', title: 'Cloud API Guardada', message: 'Configura el webhook en Meta Developers.' });
-      setCloudForm({ displayName: '', phoneNumberId: '', accessToken: '', webhookVerifyToken: '', phoneNumber: '' });
+      setCloudForm({ displayName: '', phoneNumberId: '', accessToken: '', webhookVerifyToken: '', phoneNumber: '', wabaId: '' });
       loadCloudConnections();
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || 'Error al guardar';
@@ -184,6 +191,21 @@ export const WhatsAppManager = () => {
       setCopiedWebhook(true);
       setTimeout(() => setCopiedWebhook(false), 2000);
     });
+  };
+
+  const saveWabaId = async (id: string) => {
+    const trimmed = wabaIdDraft.trim();
+    if (!trimmed) return;
+    try {
+      await api.patch(`/platform/connections/${id}/waba`, { wabaId: trimmed });
+      setCloudConnections(prev => prev.map(c => c.id === id ? { ...c, config: { ...c.config, waba_id: trimmed } } : c));
+      addNotification({ type: 'success', title: 'WABA ID guardado', message: 'Los templates de Meta usarán este WABA ID.' });
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Error al guardar WABA ID');
+    } finally {
+      setEditingWabaId(null);
+      setWabaIdDraft('');
+    }
   };
 
   const loadFlows = async () => {
@@ -439,6 +461,45 @@ export const WhatsAppManager = () => {
                       <div>
                         <p className="font-semibold text-gray-900 dark:text-white text-sm">{conn.display_name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{conn.config?.phoneNumberId || '—'}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {editingWabaId === conn.id ? (
+                            <>
+                              <input
+                                type="text"
+                                value={wabaIdDraft}
+                                onChange={e => setWabaIdDraft(e.target.value)}
+                                placeholder="WABA ID"
+                                className="px-2 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white w-40 outline-none focus:border-accent-500"
+                              />
+                              <button
+                                onClick={() => saveWabaId(conn.id)}
+                                className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                title="Guardar WABA ID"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => { setEditingWabaId(null); setWabaIdDraft(''); }}
+                                className="p-1.5 text-gray-400 hover:bg-gray-500/10 rounded-lg transition-colors"
+                                title="Cancelar"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingWabaId(conn.id); setWabaIdDraft(conn.config?.waba_id || ''); }}
+                              className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${conn.config?.waba_id
+                                ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
+                                : 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10'
+                                }`}
+                              title="Editar WABA ID (necesario para plantillas de Meta)"
+                            >
+                              <Key className="w-3 h-3" />
+                              {conn.config?.waba_id ? `WABA: ${conn.config.waba_id}` : 'Añadir WABA ID'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -548,6 +609,18 @@ export const WhatsAppManager = () => {
                     className="w-full px-4 py-3 dark:bg-white/5 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-accent-500/50 focus:ring-4 focus:ring-accent-500/5 outline-none transition-all text-sm text-slate-900 dark:text-white placeholder-slate-400/60"
                   />
                   <p className="text-xs text-gray-400 mt-1">El número real vinculado a esta conexión (se mostrará en las listas)</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">WABA ID (opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="ej. 100000000000000"
+                    value={cloudForm.wabaId}
+                    onChange={e => setCloudForm(p => ({ ...p, wabaId: e.target.value }))}
+                    className="w-full px-4 py-3 dark:bg-white/5 border border-slate-200 dark:border-slate-700 rounded-xl focus:border-accent-500/50 focus:ring-4 focus:ring-accent-500/5 outline-none transition-all text-sm text-slate-900 dark:text-white placeholder-slate-400/60"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">ID de la cuenta de WhatsApp Business. Obligatorio para cargar plantillas de Meta. Está en Meta Business Suite → Configuración → Cuenta de WhatsApp</p>
                 </div>
 
                 <div>

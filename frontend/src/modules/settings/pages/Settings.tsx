@@ -5,11 +5,6 @@ import { PageBody } from '../../../components/layout/PageBody';
 import { Settings as SettingsIcon, Save, CheckCircle, User, Lock, Bell, Globe } from 'lucide-react';
 import { Dropdown } from '../../../components/ui/Dropdown';
 
-const SECTION_COLORS = {
-  wrapper: 'p-2 bg-accent-500/10 rounded-lg text-accent-500',
-  checkbox: 'peer-checked:bg-accent-500',
-};
-
 export const Settings = () => {
   const { user } = useAuth();
   

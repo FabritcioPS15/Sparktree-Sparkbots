@@ -3,6 +3,36 @@ import { supabase } from '../../core/config/supabase';
 
 const router = express.Router();
 
+// GET /api/users/team - Lista de agentes/usuarios de la organización (para asignación)
+router.get('/team', async (req, res) => {
+  try {
+    const orgId = (req as any).organizationId;
+    if (!orgId) return res.status(404).json({ error: 'Organization not found' });
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, name, full_name, avatar_url, role')
+      .eq('organization_id', orgId)
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+
+    const team = (users || []).map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.full_name || u.name || u.email || '',
+      full_name: u.full_name || '',
+      avatar_url: u.avatar_url,
+      role: u.role
+    }));
+
+    res.json(team);
+  } catch (error) {
+    console.error('Error in /api/users/team:', error);
+    res.status(500).json({ error: 'Failed to fetch team users' });
+  }
+});
+
 // GET /api/users (WhatsApp contacts)
 router.get('/', async (req, res) => {
   try {

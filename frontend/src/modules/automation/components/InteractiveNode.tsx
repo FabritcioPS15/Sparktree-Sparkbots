@@ -7,13 +7,13 @@ export const InteractiveNode = ({ id, data: initialData }: any) => {
   const buttons = data.buttons || [];
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-violet-200 dark:border-violet-900/50 w-[320px] overflow-hidden transition-all hover:shadow-violet-500/10 group node-container">
-      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-violet-400 group-hover:!bg-violet-500" />
+    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-accent-200 dark:border-accent-900/50 w-[320px] overflow-hidden transition-all hover:shadow-accent-500/10 group node-container">
+      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
       <div className="bg-black dark:bg-gray-900 px-4 py-3 flex items-center gap-2">
-        <ListPlus className="w-4 h-4 text-violet-400" />
+        <ListPlus className="w-4 h-4 text-accent-400" />
         <h3 className="font-black text-[10px] text-white uppercase tracking-widest">Botones Interactivos</h3>
       </div>
-      <div className="p-4 space-y-3 bg-white dark:bg-gray-950 group-hover:bg-violet-50/30 dark:group-hover:bg-violet-950/20 transition-colors">
+      <div className="p-4 space-y-3 bg-white dark:bg-gray-950 group-hover:bg-accent-50/30 dark:group-hover:bg-accent-950/20 transition-colors">
         {data.bodyText ? (
           <p className="text-sm text-slate-700 dark:text-slate-200 font-bold leading-relaxed whitespace-pre-wrap break-words">{data.bodyText}</p>
         ) : (
@@ -22,10 +22,10 @@ export const InteractiveNode = ({ id, data: initialData }: any) => {
         <div className="space-y-2 pt-1">
           {buttons.map((btn: any, i: number) => (
             <div key={btn.id || `btn-${i}`} className="relative">
-              <div className="px-4 py-2.5 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-800/50 rounded-xl text-xs font-black text-violet-700 dark:text-violet-300 text-center uppercase tracking-widest">
+              <div className="px-4 py-2.5 bg-accent-50 dark:bg-accent-500/10 border border-accent-200 dark:border-accent-800/50 rounded-xl text-xs font-black text-accent-600 dark:text-accent-300 text-center uppercase tracking-widest">
                 {btn.text || btn.title}
               </div>
-              <Handle type="source" position={Position.Right} id={btn.id || `btn-${i}`} className="!w-3.5 !h-3.5 !bg-white dark:!bg-slate-700 !border-violet-400 !right-[-7px] !top-1/2 !translate-y-[-50%] group-hover:!bg-violet-500" />
+              <Handle type="source" position={Position.Right} id={btn.id || `btn-${i}`} className="!w-3.5 !h-3.5 !bg-white dark:!bg-slate-700 !border-accent-400 !right-[-7px] !top-1/2 !translate-y-[-50%] group-hover:!bg-accent-500" />
             </div>
           ))}
           {buttons.length === 0 && (
@@ -35,7 +35,7 @@ export const InteractiveNode = ({ id, data: initialData }: any) => {
           )}
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-violet-400 group-hover:!bg-violet-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
     </div>
   );
 };

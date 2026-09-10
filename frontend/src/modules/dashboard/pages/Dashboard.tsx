@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, MessageSquare, Activity, Box, Zap, ChevronRight, UserPlus, Share2, AlertCircle, LayoutDashboard, Play, ShoppingCart, FileText, Target, Wallet, Calendar, Gift, BellRing } from 'lucide-react';
 import { getAnalytics, getDashboardAnalytics, getCrmDashboard, getOrders, getQuotes, getPromotions, getCalendarEvents, getReminders } from '../../../services/api';
@@ -38,7 +38,6 @@ export const Dashboard = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showCustomRange, setShowCustomRange] = useState(false);
-  const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [crm, setCrm] = useState({ totalClients: 0, totalDeals: 0, totalValue: 0, wonValue: 0 });
   const [moduleCounts, setModuleCounts] = useState({ orders: 0, quotes: 0, promotions: 0, events: 0, reminders: 0 });
   const [dashboardStats, setDashboardStats] = useState({
@@ -49,7 +48,6 @@ export const Dashboard = () => {
   const [dashboardActivity, setDashboardActivity] = useState<any[]>([]);
   const [dashboardInsights, setDashboardInsights] = useState<any[]>([]);
   const [messagesToday, setMessagesToday] = useState(0);
-  const [totalUsers, setTotalUsers] = useState(0);
 
   const platformData = [
     { id: 'whatsapp', name: 'WhatsApp', icon: FaWhatsapp, color: 'text-emerald-500', route: '/whatsapp-qr' },
@@ -72,9 +70,7 @@ export const Dashboard = () => {
 
         if (analytics) {
           const isConnected = analytics?.whatsapp?.connected || false;
-          setWhatsappConnected(isConnected);
           setMessagesToday(isConnected ? (analytics.stats?.whatsappMessagesToday || 0) : (analytics.stats?.messagesToday || 0));
-          setTotalUsers(analytics.stats?.totalUsers || 0);
         }
 
         if (dash) {
@@ -124,6 +120,18 @@ export const Dashboard = () => {
       }
     };
     fetchDashboardData();
+
+    // Polling ligero: mantiene los AI Insights frescos (refresca cada 60s sin recargar la página)
+    const insightsInterval = setInterval(async () => {
+      try {
+        const dash = await getDashboardAnalytics(selectedTimeRange);
+        if (dash?.insights) setDashboardInsights(dash.insights);
+      } catch (e) {
+        /* silencioso */
+      }
+    }, 60000);
+
+    return () => clearInterval(insightsInterval);
   }, [selectedTimeRange]);
 
   const handleRangeChange = (range: string) => {

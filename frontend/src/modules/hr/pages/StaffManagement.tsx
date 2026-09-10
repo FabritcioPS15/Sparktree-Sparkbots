@@ -10,7 +10,6 @@ import { DataTable } from '../../../components/ui/DataTable';
 import { Modal } from '../../../components/ui/Modal';
 import { Dropdown } from '../../../components/ui/Dropdown';
 import { Badge } from '../../../components/ui/Badge';
-import { TagChip } from '../../../components/ui/TagChip';
 import { KebabMenu } from '../../../components/ui/KebabMenu';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { useNotifications } from '../../../contexts/NotificationContext';
@@ -52,28 +51,6 @@ export const StaffManagement = () => {
     return roleMapping[user.role] || 'Staff';
   };
 
-  const getRoleDescription = (role: string) => {
-    const descriptions: { [key: string]: string } = {
-      'super_admin': 'Acceso total al sistema, gestión de todas las organizaciones y configuración global',
-      'admin': 'Gestión completa de usuarios, configuración de organización y acceso a todas las herramientas',
-      'empresa': 'Acceso a datos de empresa, gestión de clientes y reportes de negocio',
-      'staff': 'Soporte técnico, gestión de flujos y atención a usuarios finales',
-      'agent': 'Atención básica a clientes, acceso limitado a herramientas de comunicación'
-    };
-    return descriptions[role] || 'Acceso bÃ¡sico al sistema';
-  };
-
-  const getRoleColor = (role: string) => {
-    const colors: { [key: string]: string } = {
-      'super_admin': 'bg-black text-white dark:bg-white dark:text-black shadow-lg',
-      'admin': 'bg-accent-500 text-black shadow-lg shadow-accent-500/30',
-      'empresa': 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
-      'staff': 'bg-blue-500 text-white shadow-lg shadow-blue-500/30',
-      'agent': 'bg-slate-500 text-white shadow-lg'
-    };
-    return colors[role] || 'bg-slate-500 text-white';
-  };
-
   const getUserUsageTime = (user: SystemUser) => {
     if (!user.created_at) return { hours: 0, days: 0 };
     const createdDate = new Date(user.created_at);
@@ -81,16 +58,6 @@ export const StaffManagement = () => {
     const hoursDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60));
     const daysDiff = Math.floor(hoursDiff / 8);
     return { hours: hoursDiff, days: daysDiff };
-  };
-
-  const getUserRoleColor = (role: string) => {
-    switch (role.toLowerCase()) {
-      case 'super admin': return 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30';
-      case 'admin': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30';
-      case 'staff': return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30';
-      case 'viewer': return 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/30';
-      default: return 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/30';
-    }
   };
 
   const getOrganizationName = (orgId: string | null) => {

@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Users, MessageCircle, Activity, CheckCircle, BarChart3,
-  Clock, Zap, Target, ArrowUp, ArrowDown
+  Clock, Target, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { getAnalytics } from '../../../services/api';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -134,7 +134,7 @@ export const Analytics = () => {
   if (!analyticsData) return null;
 
   const { interactionsPerDay, activeUsers, weeklySummary, dailyFlowSummary, hourlyActivity, stats } = analyticsData;
-  const safeStats = stats || { avgResponseTime: 0, satisfactionRate: 0, completionRate: 0, totalUsers: 0, totalMessages: 0, totalConversations: 0, messagesSent: 0, messagesReceived: 0, messageTrend: 0 };
+  const safeStats = { ...stats, messageTrend: 0 };
   const safeInteractionsPerDay = Array.isArray(interactionsPerDay) ? interactionsPerDay : [];
   const safeActiveUsers = Array.isArray(activeUsers) ? activeUsers : [];
   const safeWeeklySummary = Array.isArray(weeklySummary) ? weeklySummary : [];

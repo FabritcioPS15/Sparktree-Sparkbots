@@ -7,23 +7,23 @@ export const KnowledgeRetrievalNode = ({ data }: any) => {
   const topK = data.topK || 3;
 
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-teal-200 dark:border-teal-900/50 w-64 overflow-hidden transition-all hover:shadow-teal-500/10 group node-container">
-      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-teal-400 group-hover:!bg-teal-500" />
+    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-lg border border-accent-200 dark:border-accent-900/50 w-64 overflow-hidden transition-all hover:shadow-accent-500/10 group node-container">
+      <Handle type="target" position={Position.Top} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
       <div className="bg-black dark:bg-gray-900 p-4 flex items-center gap-3 rounded-t-2xl">
-        <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center">
-          <Library className="w-5 h-5 text-teal-400" />
+        <div className="w-9 h-9 bg-accent-500/10 rounded-xl flex items-center justify-center">
+          <Library className="w-5 h-5 text-accent-400" />
         </div>
         <div>
           <h3 className="font-black text-[11px] text-white uppercase tracking-widest">Base de Conocimiento</h3>
-          <p className="text-[8px] text-teal-400 font-black uppercase tracking-widest leading-none">RAG</p>
+          <p className="text-[8px] text-accent-400 font-black uppercase tracking-widest leading-none">RAG</p>
         </div>
       </div>
-      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-teal-50/30 dark:group-hover:bg-teal-950/20 transition-colors space-y-3">
+      <div className="p-4 bg-white dark:bg-gray-950 group-hover:bg-accent-50/30 dark:group-hover:bg-accent-950/20 transition-colors space-y-3">
         {kbName ? (
           <>
-            <div className="flex items-center gap-2 px-3 py-2 bg-teal-50 dark:bg-teal-500/10 rounded-xl border border-teal-200 dark:border-teal-800/50">
-              <Library className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-              <span className="text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-wider truncate">
+            <div className="flex items-center gap-2 px-3 py-2 bg-accent-50 dark:bg-accent-500/10 rounded-xl border border-accent-200 dark:border-accent-800/50">
+              <Library className="w-3.5 h-3.5 text-accent-500 shrink-0" />
+              <span className="text-[9px] font-black text-accent-600 dark:text-accent-300 uppercase tracking-wider truncate">
                 {kbName}
               </span>
             </div>
@@ -45,7 +45,7 @@ export const KnowledgeRetrievalNode = ({ data }: any) => {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-teal-400 group-hover:!bg-teal-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-white dark:!bg-slate-700 !border-accent-400 group-hover:!bg-accent-500" />
     </div>
   );
 };

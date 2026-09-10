@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FaTiktok } from 'react-icons/fa';
 import {
   CheckCircle, XCircle, AlertTriangle, AlertCircle, ExternalLink, RefreshCw,
-  LogOut, ArrowRight, Info, Clock, MessageSquare, Shield
+  LogOut, Info, Clock, MessageSquare, Shield
 } from 'lucide-react';
 import { Loader } from '../../../components/ui/Loader';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -10,7 +10,6 @@ import { PageBody } from '../../../components/layout/PageBody';
 import { PageContainer } from '../../../components/layout/PageContainer';
 import { ConnectionLayout, EcosystemStatus } from '../components/ConnectionLayout';
 import { useConnections } from '../../../contexts/ConnectionsContext';
-import { cn } from '../../../utils/cn';
 import { Modal } from '../../../components/ui/Modal';
 import { useNotifications } from '../../../contexts/NotificationContext';
 
@@ -33,7 +32,7 @@ const prerequisites = [
 
 export const TikTokConfig = () => {
   const { addNotification } = useNotifications();
-  const { addConnection, removeConnection, getConnectionByPlatform, isConnecting } = useConnections();
+  const { addConnection, removeConnection, getConnectionByPlatform } = useConnections();
   const existingConnection = getConnectionByPlatform('tiktok');
   const [data, setData] = useState<TikTokData>({
     businessAccountId: '', username: '', displayName: '', profilePicUrl: '', status: existingConnection ? 'connected' : 'disconnected',
@@ -145,9 +144,9 @@ export const TikTokConfig = () => {
 
           {/* --- CONNECTED STATE --- */}
           {isConnected && (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-6">
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4">
                   <div className="relative">
                     <div className="w-20 h-20 bg-gradient-to-br from-black to-gray-800 rounded-2xl flex items-center justify-center shadow-xl shadow-black/20">
                       <FaTiktok size={34} color="white" />
@@ -171,7 +170,7 @@ export const TikTokConfig = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                       <Shield className="w-3 h-3" /> Business ID
@@ -217,12 +216,12 @@ export const TikTokConfig = () => {
 
           {/* --- TOKEN EXPIRED STATE --- */}
           {isExpired && (
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-6 text-center">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-5 text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-red-500" />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Token Vencido</h3>
-              <p className="text-sm text-slate-500 mb-6">El acceso a TikTok Business ha expirado. Reconecta para seguir usando la automatización.</p>
+              <p className="text-sm text-slate-500 mb-4">El acceso a TikTok Business ha expirado. Reconecta para seguir usando la automatización.</p>
               <button onClick={handleReconnect}
                 className="inline-flex items-center gap-2 h-11 px-8 bg-gradient-to-r from-black to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-[1.01] active:scale-[0.99] shadow-lg">
                 <RefreshCw className="w-4 h-4" /> Reconectar
@@ -232,14 +231,14 @@ export const TikTokConfig = () => {
 
           {/* --- ERROR STATE --- */}
           {isError && (
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-6 text-center">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-red-200 dark:border-red-900/30 shadow-sm p-5 text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <XCircle className="w-8 h-8 text-red-500" />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Cuenta no Business</h3>
               <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">{data.errorMessage}</p>
               <a href="https://ads.tiktok.com/help/article?aid=10000123" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 underline mb-6">
+                className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 underline mb-4">
                 Ver instrucciones para convertir a Business <ExternalLink className="w-3 h-3" />
               </a>
               <div>
@@ -304,12 +303,12 @@ export const TikTokConfig = () => {
               </div>
 
               {/* Connect button */}
-              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
+              <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-black to-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-black/20">
                   <FaTiktok size={28} color="white" />
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Conectar TikTok</h3>
-                <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
                   Autoriza el acceso para empezar a automatizar mensajes directos desde tu cuenta Business.
                 </p>
 

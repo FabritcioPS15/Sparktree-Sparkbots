@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getConversations, getConversationMessages, deleteConversation, deleteUser, getCatalogs } from '../../../services/api';
+import { getConversations, getConversationMessages, deleteConversation, deleteUser, getCatalogs, getTeamUsers, assignAgentToConversation } from '../../../services/api';
 import api from '../../../services/api';
 import {
-  Check, CheckCheck, Send, Search, Filter, Users, MoreVertical, Smile, Paperclip, Mic, Star, MessageCircle, Trash2, ChevronLeft, ChevronRight, ChevronDown, Store, Package, X, Bell, Shield, Plus, Cloud, QrCode, Sparkles
+  Check, CheckCheck, Send, Search, Filter, Users, MoreVertical, Smile, Paperclip, Mic, Star, MessageCircle, Trash2, ChevronLeft, ChevronRight, ChevronDown, Store, Package, X, Bell, BellOff, Shield, Plus, Cloud, QrCode, Bot, User
 } from 'lucide-react';
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger, FaTiktok } from 'react-icons/fa';
 import { PageLoader } from '../../../components/layout/PageLoader';
@@ -12,13 +12,6 @@ import { Loader } from '../../../components/ui/Loader';
 import { AnimatedButton } from '../../../components/ui/AnimatedButton';
 import { Modal } from '../../../components/ui/Modal';
 import { useNotifications } from '../../../contexts/NotificationContext';
-const MOCK_AGENTS = [
-  { id: '1', name: 'Ana Gómez' },
-  { id: '2', name: 'Carlos Ruiz' },
-  { id: '3', name: 'Maria Torres' },
-  { id: '4', name: 'David Silva' },
-  { id: '5', name: 'Laura Vega' },
-];
 
 export const Conversations = () => {
   const { addNotification } = useNotifications();
@@ -46,9 +39,10 @@ export const Conversations = () => {
   const [catalogs, setCatalogs] = useState<any[]>([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
 
-  // Assignment state (mock)
-  const [assignedAgents, setAssignedAgents] = useState<Record<string, string>>({});
+  // Assignment state (real agents from backend)
+  const [systemAgents, setSystemAgents] = useState<any[]>([]);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -347,6 +341,13 @@ export const Conversations = () => {
         if (active) setSelectedConnectionId(active.id);
       }
     }).catch(() => { });
+  }, []);
+
+  // Cargar los agentes reales del equipo para la asignación de conversaciones
+  useEffect(() => {
+    getTeamUsers()
+      .then(agents => setSystemAgents(Array.isArray(agents) ? agents : []))
+      .catch(err => console.error('Error fetching team agents:', err));
   }, []);
 
   const totalPages = useMemo(() => Math.ceil(conversations.length / itemsPerPage), [conversations.length]);
@@ -689,7 +690,7 @@ export const Conversations = () => {
     setIsChatMenuOpen(false);
     setIsMenuOpen(false);
     setTimeout(() => {
-      const input = document.querySelector<HTMLInputElement>('input[placeholder="Buscar en conversación..."]');
+      const input = document.querySelector<HTMLInputElement>('input[placeholder="Buscar..."]');
       input?.focus();
     }, 100);
   };
@@ -901,24 +902,110 @@ export const Conversations = () => {
     }
   };
 
+  // Estado del bot para este contacto: 'handoff' | 'capture' | 'active'
+  const getBotStatus = (conv: any): 'handoff' | 'capture' | 'active' => {
+    const state = conv?.contactId?.bot_state || conv?.contactId?.botState || conv?.botState;
+    if (state === 'handoff') return 'handoff';
+    if (typeof state === 'string' && state.startsWith('capture_')) return 'capture';
+    return 'active';
+  };
+
+  const isBotPaused = (conv: any) => getBotStatus(conv) !== 'active';
+
+  // Icono de estado del bot/persona con tooltip propio al pasar el mouse.
+  const BotStatusIndicator = ({ conv, sizeClass = 'w-3.5 h-3.5' }: { conv: any; sizeClass?: string }) => {
+    const status = getBotStatus(conv);
+    let icon: React.ReactNode;
+    let label: string;
+    if (status === 'handoff') {
+      icon = <User className={`${sizeClass} text-red-500`} />;
+      label = 'Agente humano atendiendo';
+    } else if (status === 'capture') {
+      icon = <Bot className={`${sizeClass} text-red-500`} />;
+      label = 'Bot en pausa';
+    } else {
+      icon = <Bot className={`${sizeClass} text-yellow-400`} />;
+      label = 'Bot atendiendo';
+    }
+    return (
+      <span className="relative group inline-flex items-center shrink-0">
+        {icon}
+        <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 whitespace-nowrap bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[9px] font-bold px-2 py-1 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          {label}
+        </span>
+      </span>
+    );
+  };
+
   const handleReactivateBot = async () => {
     if (!selectedConv) return;
     setIsChatMenuOpen(false);
+    setIsMenuOpen(false);
     try {
-      const res = await api.post(`/conversations/${selectedConv._id}/reactivate-bot`);
+      await api.post(`/conversations/${selectedConv._id}/reactivate-bot`);
       if (selectedConv.contactId) {
         selectedConv.contactId.bot_state = null;
         selectedConv.contactId.botState = null;
+        selectedConv.contactId.custom_attributes = { ...(selectedConv.contactId.custom_attributes || {}), flow_history: [] };
       }
       addNotification({ type: 'success', title: 'Bot reactivado', message: 'El bot volverá a responder a este contacto.' });
-      if (res.data?.bot_state !== undefined) {
-        setSelectedConv({ ...selectedConv, bot_state: null, botState: null });
-      }
+      // Actualizar de inmediato el listado y el header (el bot queda "atendiendo" → amarillo)
+      setConversations(prev => prev.map(c =>
+        c._id === selectedConv._id
+          ? { ...c, botState: 'main_menu', contactId: { ...(c.contactId || {}), bot_state: null, botState: null } }
+          : c
+      ));
+      setSelectedConv({ ...selectedConv, botState: 'main_menu', bot_state: null, contactId: { ...(selectedConv.contactId || {}), bot_state: null, botState: null } });
     } catch (err) {
       addNotification({ type: 'error', title: 'Error', message: 'No se pudo reactivar el bot.' });
     }
   };
 
+
+  const getAgentName = (agent: any) => {
+    return agent?.full_name || agent?.name || agent?.email || 'Agente';
+  };
+
+  const handleAssignAgent = async (agentId: string) => {
+    if (!selectedConv) return;
+    setIsAssignOpen(false);
+    setAssignLoading(true);
+    try {
+      await assignAgentToConversation(selectedConv._id, agentId);
+      const selectedAgent = systemAgents.find(a => a.id === agentId);
+      const assignedAgent = selectedAgent
+        ? { id: agentId, name: getAgentName(selectedAgent) }
+        : null;
+      // Actualizar de inmediato el listado y el header
+      setConversations(prev => prev.map(c =>
+        c._id === selectedConv._id ? { ...c, assignedTo: agentId, assignedAgent } : c
+      ));
+      setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: agentId, assignedAgent } : prev);
+      addNotification({ type: 'success', title: 'Conversación asignada', message: `Asignada a ${getAgentName(selectedAgent)}.` });
+    } catch (err) {
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo asignar la conversación.' });
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleUnassignAgent = async () => {
+    if (!selectedConv) return;
+    setIsAssignOpen(false);
+    setAssignLoading(true);
+    try {
+      await api.post('/assignment/unassign', { conversationId: selectedConv._id });
+      setConversations(prev => prev.map(c =>
+        c._id === selectedConv._id ? { ...c, assignedTo: null, assignedAgent: null } : c
+      ));
+      setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: null, assignedAgent: null } : prev);
+      addNotification({ type: 'success', title: 'Conversación sin asignar', message: 'Ningún agente asignado.' });
+    } catch (err) {
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo quitar la asignación.' });
+    } finally {
+      setAssignLoading(false);
+    }
+  };
 
   const formatTime = (dateString: string) => {
     if (!dateString) return '';
@@ -1138,7 +1225,10 @@ export const Conversations = () => {
                         </span>
                       ))}
                     </div>
-                    <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">
+                    <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase flex items-center gap-1">
+                      {mutedConversations.has(conv._id) && (
+                        <BellOff className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                      )}
                       {formatTime(conv.lastMessageAt)}
                     </span>
                   </div>
@@ -1224,10 +1314,50 @@ export const Conversations = () => {
                     })()}
                   </h3>
                 </div>
-                <div className="relative">
+                <div className="relative flex items-center">
+                  <BotStatusIndicator conv={selectedConv} sizeClass="w-4 h-4 mr-1" />
                   <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-gray-400 hover:text-accent-500 rounded-xl transition-all">
                     <MoreVertical className="w-5 h-5" />
                   </button>
+                  {isChatSearchOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }} />
+                      <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div className="p-1.5">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            <input
+                              type="text"
+                              value={chatSearchTerm}
+                              onChange={(e) => { setChatSearchTerm(e.target.value); setChatSearchIndex(0); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') goToChatSearchResult('next'); }}
+                              placeholder="Buscar..."
+                              className="w-full h-8 pl-8 pr-2 bg-gray-100 dark:bg-white/10 border border-transparent focus:border-accent-500/30 rounded-lg outline-none text-xs font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 transition-all"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5 px-0.5">
+                            <span className="text-[10px] font-bold text-gray-400 tabular-nums whitespace-nowrap">
+                              {chatSearchTerm ? `${chatSearchIndex + 1}/${chatSearchResults.length}` : 'Escribe para buscar'}
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              <button onClick={() => goToChatSearchResult('prev')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => goToChatSearchResult('next')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }}
+                                className="p-1 text-gray-400 hover:text-red-500 transition-all">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   {isMenuOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
@@ -1238,6 +1368,11 @@ export const Conversations = () => {
                         <button onClick={() => handleMuteConversation(selectedConv._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                           <Bell className={`w-4 h-4 ${mutedConversations.has(selectedConv._id) ? 'text-accent-500' : 'text-gray-400'}`} /> {mutedConversations.has(selectedConv._id) ? 'Silenciado' : 'Silenciar'}
                         </button>
+                        {isBotPaused(selectedConv) && (
+                          <button onClick={handleReactivateBot} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                            <Bot className="w-4 h-4 text-emerald-500" /> Reactivar bot
+                          </button>
+                        )}
                         <button onClick={() => handleBlockContact(selectedConv.contactId?._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                           <Shield className={`w-4 h-4 ${blockedContacts.has(selectedConv.contactId?._id || '') ? 'text-red-500' : 'text-gray-400'}`} /> {blockedContacts.has(selectedConv.contactId?._id || '') ? 'Bloqueado' : 'Bloquear'}
                         </button>
@@ -1268,21 +1403,17 @@ export const Conversations = () => {
                           })()}
                         </h3>
                       </div>
-                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-none mt-0.5 block">{(() => {
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-none mt-1.5 block">{(() => {
                         const realPhone = getRealPhoneNumber(selectedConv.contactId);
                         const { prefix, number } = formatPhoneNumber(realPhone);
                         return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin número guardado';
                       })()}</span>
-                      {selectedConv.contactId?.bot_state === 'handoff' && (
-                        <span className="mt-1 w-fit inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                          <Sparkles className="w-3 h-3" /> Bot en pausa
-                        </span>
-                      )}
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-4 relative">
                     <div className="flex items-center gap-1.5">
+                        <BotStatusIndicator conv={selectedConv} sizeClass="w-4 h-4" />
                         <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Atendido:</span>
                         <div className="relative">
                           <button
@@ -1290,7 +1421,7 @@ export const Conversations = () => {
                             className="flex items-center gap-1.5 text-[10px] font-bold text-gray-900 dark:text-white dark:bg-white/5 px-2.5 py-1 rounded-lg border border-gray-100 dark:border-white/10 hover:border-accent-500/50 hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm"
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            {assignedAgents[selectedConv._id] ? MOCK_AGENTS.find(a => a.id === assignedAgents[selectedConv._id])?.name : 'Sin asignar'}
+                            {selectedConv.assignedAgent?.name || (selectedConv.assignedTo ? getAgentName(systemAgents.find(a => a.id === selectedConv.assignedTo)) : 'Sin asignar')}
                             <ChevronDown className="w-3.5 h-3.5 opacity-50" />
                           </button>
                           {isAssignOpen && (
@@ -1300,23 +1431,35 @@ export const Conversations = () => {
                                 <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 dark:bg-white/5">
                                   <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Asignar a:</span>
                                 </div>
-                                <div className="py-1">
-                                  {MOCK_AGENTS.map(agent => (
+                                <div className="py-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                  {assignLoading && <div className="px-4 py-2 text-xs text-gray-400">Cargando...</div>}
+                                  {!assignLoading && systemAgents.length === 0 && (
+                                    <div className="px-4 py-2 text-xs text-gray-400">No hay agentes disponibles</div>
+                                  )}
+                                  {systemAgents.map(agent => (
                                     <button
                                       key={agent.id}
-                                      onClick={() => {
-                                        setAssignedAgents(prev => ({ ...prev, [selectedConv._id]: agent.id }));
-                                        setIsAssignOpen(false);
-                                      }}
-                                      className={`w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 dark:hover:bg-white/5 transition-colors font-bold ${assignedAgents[selectedConv._id] === agent.id
+                                      onClick={() => handleAssignAgent(agent.id)}
+                                      className={`w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 dark:hover:bg-white/5 transition-colors font-bold ${(selectedConv.assignedTo === agent.id || selectedConv.assignedAgent?.id === agent.id)
                                         ? 'text-accent-500 bg-accent-500/5'
                                         : 'text-gray-700 dark:text-gray-300'
                                         }`}
                                     >
-                                      {agent.name}
+                                      {getAgentName(agent)}
                                     </button>
                                   ))}
                                 </div>
+                                {selectedConv.assignedTo && (
+                                  <>
+                                    <div className="border-t border-gray-100 dark:border-white/5" />
+                                    <button
+                                      onClick={handleUnassignAgent}
+                                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                    >
+                                      Quitar asignación
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </>
                           )}
@@ -1326,9 +1469,50 @@ export const Conversations = () => {
                       <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1"></div>
 
                       <div className="flex items-center gap-0">
-                        <button className="p-1.5 text-gray-400 hover:text-accent-500 hover:bg-accent-500/5 rounded-lg transition-all">
-                          <Search className="w-4 h-4" />
-                        </button>
+                        <div className="relative">
+                          <button onClick={handleSearchInChat} className={`p-1.5 rounded-lg transition-all hover:bg-accent-500/5 ${isChatSearchOpen ? 'text-accent-500 bg-accent-500/5' : 'text-gray-400 hover:text-accent-500'}`}>
+                            <Search className="w-4 h-4" />
+                          </button>
+                          {isChatSearchOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }} />
+                              <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                <div className="p-1.5">
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      value={chatSearchTerm}
+                                      onChange={(e) => { setChatSearchTerm(e.target.value); setChatSearchIndex(0); }}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') goToChatSearchResult('next'); }}
+                                      placeholder="Buscar..."
+                                      className="w-full h-8 pl-8 pr-2 bg-gray-100 dark:bg-white/10 border border-transparent focus:border-accent-500/30 rounded-lg outline-none text-xs font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 transition-all"
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1.5 px-0.5">
+                                    <span className="text-[10px] font-bold text-gray-400 tabular-nums whitespace-nowrap">
+                                      {chatSearchTerm ? `${chatSearchIndex + 1}/${chatSearchResults.length}` : 'Escribe para buscar'}
+                                    </span>
+                                    <div className="flex items-center gap-0.5">
+                                      <button onClick={() => goToChatSearchResult('prev')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                        className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => goToChatSearchResult('next')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                        className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }}
+                                        className="p-1 text-gray-400 hover:text-red-500 transition-all">
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                         <div className="relative">
                           <button onClick={() => setIsChatMenuOpen(!isChatMenuOpen)} className="p-1.5 text-gray-400 hover:text-accent-500 hover:bg-accent-500/5 rounded-lg transition-all">
                             <MoreVertical className="w-4 h-4" />
@@ -1346,9 +1530,11 @@ export const Conversations = () => {
                                 <button onClick={() => handleBlockContact(selectedConv.contactId?._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                   <Shield className={`w-4 h-4 ${blockedContacts.has(selectedConv.contactId?._id || '') ? 'text-red-500' : 'text-gray-400'}`} /> {blockedContacts.has(selectedConv.contactId?._id || '') ? 'Bloqueado' : 'Bloquear'}
                                 </button>
-                                <button onClick={handleReactivateBot} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
-                                  <Sparkles className="w-4 h-4 text-emerald-500" /> Reactivar bot
-                                </button>
+                                {isBotPaused(selectedConv) && (
+                                  <button onClick={handleReactivateBot} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                                    <Bot className="w-4 h-4 text-emerald-500" /> Reactivar bot
+                                  </button>
+                                )}
                                 <div className="border-t border-gray-100 dark:border-white/5" />
                                 <button onClick={(e) => { setIsChatMenuOpen(false); handleDeleteConversation(e as any, selectedConv._id, selectedConv.contactId?._id); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                                   <Trash2 className="w-4 h-4" /> Eliminar
@@ -1363,44 +1549,11 @@ export const Conversations = () => {
                   </div>
               </div>
 
-            {/* Chat Body */}
+{/* Chat Body */}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 pb-4 space-y-4 custom-scrollbar relative z-10"
             >
-              {/* In-chat search bar */}
-              {isChatSearchOpen && (
-                <div className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 py-2 bg-white/95 dark:bg-dark-card/95 backdrop-blur-sm border-b border-gray-100 dark:border-white/5 mb-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={chatSearchTerm}
-                        onChange={(e) => { setChatSearchTerm(e.target.value); setChatSearchIndex(0); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') goToChatSearchResult('next'); }}
-                        placeholder="Buscar en conversación..."
-                        className="w-full h-9 pl-9 pr-3 bg-gray-100 dark:bg-white/10 border border-transparent focus:border-accent-500/30 rounded-xl outline-none text-xs font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 transition-all"
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400 tabular-nums whitespace-nowrap">
-                      {chatSearchTerm ? `${chatSearchIndex + 1}/${chatSearchResults.length}` : ''}
-                    </span>
-                    <button onClick={() => goToChatSearchResult('prev')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
-                      className="p-1.5 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => goToChatSearchResult('next')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
-                      className="p-1.5 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 transition-all">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
               {messages.map((m, msgIdx) => {
                 const isMe = m.direction === 'outbound';
                 const body = parseMessage(m.content);

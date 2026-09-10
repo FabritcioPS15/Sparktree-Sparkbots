@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Plus, FileText, Eye, Trash2, Send, Download, Copy, Edit3, X, Percent, Calendar, DollarSign, ClipboardList, ShoppingCart, RotateCcw, History } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, FileText, Eye, Trash2, Send, Download, Copy, Edit3, X, Percent, Calendar, DollarSign, ClipboardList, ShoppingCart, History } from 'lucide-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { HeaderButton } from '../../../components/ui/HeaderButton';
 import { PageContainer } from '../../../components/layout/PageContainer';
@@ -81,10 +81,6 @@ const STATUS_OPTIONS = [
   { value: 'expired', label: 'Vencido' },
 ];
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador', sent: 'Enviado', accepted: 'Aceptado', rejected: 'Rechazado', expired: 'Vencido',
-};
-
 const mapQuote = (row: any): Quote => ({
   id: row.id,
   number: row.number,
@@ -159,7 +155,7 @@ export const Cotizaciones = () => {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const addHistory = (quote: Quote, action: string): HistoryEntry => ({ date: today(), action, user: 'Admin' });
+  const addHistory = (_quote: Quote, action: string): HistoryEntry => ({ date: today(), action, user: 'Admin' });
 
   useEffect(() => {
     let cancelled = false;

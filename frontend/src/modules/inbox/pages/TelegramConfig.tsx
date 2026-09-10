@@ -120,8 +120,8 @@ export const TelegramConfig = () => {
         {isConnected ? (
           /* --- CONNECTED STATE --- */
           <>
-            <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 mb-6">
+            <div className="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-4">
                 <div className="relative">
                   <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20">
                     <FaTelegram size={36} color="white" />
@@ -147,7 +147,7 @@ export const TelegramConfig = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-100 dark:border-slate-700/30">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
                     <Bot className="w-3 h-3" /> Bot

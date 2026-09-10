@@ -167,6 +167,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
    */
   useEffect(() => {
     let lastLatestMessageTime: string | null = null;
+    const handoffAlerted = new Set<string>();
 
     /**
      * Verifica si hay nuevos mensajes de leads
@@ -218,6 +219,31 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           if (latestTime) {
             lastLatestMessageTime = latestTime;
           }
+        }
+
+        // ── Alerta de asistente humano ──────────────────────────────────────────
+        // Cuando un cliente solicita un humano, el bot fija contacts.bot_state='handoff'
+        // (devuelto como conv.botState). Se dispara una alerta en la campana (una sola vez
+        // por conversación) para que un agente atienda el chat.
+        const handoffConvs = (Array.isArray(convs) ? convs : []).filter(
+          (c: any) => c.botState === 'handoff' && c._id && !handoffAlerted.has(c._id)
+        );
+        for (const hc of handoffConvs) {
+          handoffAlerted.add(hc._id);
+          const phoneNumber = hc.contactId?.phoneNumber;
+          const hasName = hc.contactId?.name && hc.contactId.name !== 'Sin nombre';
+          const contactInfo = hasName ? hc.contactId.name : (phoneNumber || 'Un cliente');
+          addNotification({
+            type: 'warning',
+            title: 'Solicitud de asistente humano',
+            message: `${contactInfo} pide hablar con un agente.`,
+            action: {
+              label: 'Atender',
+              onClick: () => {
+                window.location.href = `/conversations/${hc._id}`;
+              }
+            }
+          });
         }
       } catch (error) {
         console.error('Error checking new messages:', error);

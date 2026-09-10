@@ -16,8 +16,9 @@ import '@xyflow/react/dist/style.css';
 
 import { TriggerNode } from './TriggerNode';
 import { TextNode } from './TextNode';
-import { CustomEdge } from './CustomEdge';
+import CustomEdge from './CustomEdge';
 import { InteractiveNode } from './InteractiveNode';
+import { ConfirmationNode } from './ConfirmationNode';
 import { MediaNode } from './MediaNode';
 import { CaptureNode } from './CaptureNode';
 import { CapturePhoneNode } from './CapturePhoneNode';
@@ -48,11 +49,32 @@ import {
   HiMiniUserPlus,
   HiMiniTrash,
   HiMiniBolt,
-  HiMiniStar
+  HiMiniStar,
+  HiMiniCheckCircle
 } from "react-icons/hi2";
 import { saveFlows, getActiveConnectionsForFlow } from '../../../services/api';
 import { Loader } from '../../../components/ui/Loader';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
+
+// Textos de ayuda que se muestran en el icono "?" del panel de propiedades.
+// Centraliza los tips para que no ocupen espacio dentro del formulario.
+const NODE_HELP_TEXTS: Record<string, string> = {
+  trigger: 'Inicia el flujo cuando el usuario envía un mensaje que coincide con las palabras clave de activación.',
+  text: 'Envía un mensaje de texto simple al usuario. Puedes usar {{nombre}} para personalizar con datos del contacto.',
+  interactive: 'Cloud API: botones reales clickeables (máx. 3). QR: opciones numeradas como texto (sin límite).',
+  confirmation: 'Pide al usuario confirmar Sí o No. Conecta la salida Sí y No (y la No suele volver al menú). El bot también entiende respuestas de texto libre "sí"/"no".',
+  media: 'Envía una imagen, video o documento adjunto al usuario.',
+  catalog: 'Envía un producto desde tu catálogo de Meta al usuario.',
+  capture: 'Hace una pregunta y guarda la respuesta del usuario en una variable (ej. @nombre).',
+  capture_phone: 'Pide al usuario su número de celular. Se valida automáticamente y se guarda en @telefono del contacto.',
+  condition: 'Evalúa una condición (ej. variable existe, valor es igual) y bifurca el flujo según el resultado.',
+  delay: 'Pausa el flujo temporalmente simulando que el bot está escribiendo o esperando.',
+  webhook: 'Envía datos a un sistema externo o API de tu empresa.',
+  handoff: 'Detiene el bot y transfiere la conversación a un agente humano.',
+  email: 'Compone y envía un correo electrónico. Puedes usar {{variable}} para insertar datos capturados del usuario.',
+  llm: 'Genera una respuesta usando un modelo de lenguaje (LLM) con contexto de la conversación.',
+  knowledge_retrieval: 'Busca información relevante en una base de conocimiento y la usa como contexto.',
+};
 
 
 
@@ -88,6 +110,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
     trigger: TriggerNode,
     text: TextNode,
     interactive: InteractiveNode,
+    confirmation: ConfirmationNode,
     media: MediaNode,
     capture: CaptureNode,
   capture_phone: CapturePhoneNode,
@@ -345,6 +368,12 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
       defaultData.variableName = 'telefono';
       defaultData.validationType = 'phone';
     }
+    if (type === 'confirmation') {
+      defaultData.bodyText = '¿Confirmas esta acción?';
+      defaultData.yesLabel = '✅ Sí';
+      defaultData.noLabel = '❌ No';
+      defaultData.retryMessage = 'Por favor responde Sí o No para continuar:';
+    }
     const newNode = {
       id: `node_${Date.now()}`,
       type,
@@ -355,7 +384,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
     pushToHistory();
   }, [screenToFlowPosition]);
 
-  const insertFormatting = (id: string, type: string, nodeType: string) => {
+  const insertFormatting = (id: string, type: string, nodeType: string, token?: string) => {
     const textarea = document.getElementById(id) as HTMLTextAreaElement;
     if (!textarea) return;
     const start = textarea.selectionStart;
@@ -369,6 +398,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
       case 'italic': formattedText = `_${selectedText}_`; break;
       case 'strike': formattedText = `~${selectedText}~`; break;
       case 'code': formattedText = `\`\`\`${selectedText}\`\`\``; break;
+      case 'variable': formattedText = token || '{{variable}}'; break;
       default: formattedText = selectedText;
     }
 
@@ -378,46 +408,39 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
       updateNodeData({ text: newValue });
     } else if (nodeType === 'interactive') {
       updateNodeData({ bodyText: newValue });
+    } else if (nodeType === 'confirmation') {
+      updateNodeData({ bodyText: newValue });
     } else if (nodeType === 'capture') {
       updateNodeData({ question: newValue });
     }
   };
 
   const chatNodes = [
-    { id: 'trigger', label: 'Disparador', sub: 'Palabras Clave', icon: HiMiniBolt, color: 'emerald', helpText: 'Inicia el flujo cuando el usuario envía un mensaje que coincide con las palabras clave.' },
-    { id: 'text', label: 'Texto', sub: 'Mensaje Simple', icon: HiMiniChatBubbleBottomCenterText, color: 'blue', helpText: 'Envía un mensaje de texto simple al usuario.' },
-    { id: 'interactive', label: 'Botones', sub: 'Opciones Rápidas', icon: HiMiniSquare3Stack3D, color: 'violet', helpText: 'Envía un mensaje con botones interactivos para que el usuario elija una opción.' },
-    { id: 'media', label: 'Media', sub: 'Imagen / Video', icon: HiMiniVideoCamera, color: 'rose', helpText: 'Envía una imagen, video o documento adjunto.' },
-    { id: 'catalog', label: 'Catálogo', sub: 'Enviar Producto', icon: HiMiniStar, color: 'amber', helpText: 'Envía un producto desde tu catálogo al usuario.' },
+    { id: 'trigger', label: 'Disparador', sub: 'Palabras Clave', icon: HiMiniBolt, color: 'accent', helpText: 'Inicia el flujo cuando el usuario envía un mensaje que coincide con las palabras clave.' },
+    { id: 'text', label: 'Texto', sub: 'Mensaje Simple', icon: HiMiniChatBubbleBottomCenterText, color: 'accent', helpText: 'Envía un mensaje de texto simple al usuario.' },
+    { id: 'interactive', label: 'Botones', sub: 'Opciones Rápidas', icon: HiMiniSquare3Stack3D, color: 'accent', helpText: 'Envía un mensaje con botones interactivos para que el usuario elija una opción.' },
+    { id: 'confirmation', label: 'Confirmación', sub: 'Sí / No', icon: HiMiniCheckCircle, color: 'accent', helpText: 'Pide al usuario confirmar Sí o No y bifurca el flujo según la respuesta.' },
+    { id: 'media', label: 'Media', sub: 'Imagen / Video', icon: HiMiniVideoCamera, color: 'accent', helpText: 'Envía una imagen, video o documento adjunto.' },
+    { id: 'catalog', label: 'Catálogo', sub: 'Enviar Producto', icon: HiMiniStar, color: 'accent', helpText: 'Envía un producto desde tu catálogo al usuario.' },
   ];
 
   const integrationNodes = [
-    { id: 'capture', label: 'Captura', sub: 'Pedir Dato', icon: HiMiniVariable, color: 'cyan', helpText: 'Hace una pregunta y guarda la respuesta del usuario en una variable (ej. @nombre).' },
-    { id: 'capture_phone', label: 'Capturar Celular', sub: 'Pedir Número', icon: HiMiniVariable, color: 'emerald', helpText: 'Pide al usuario su número de celular. Se valida y guarda automáticamente en el contacto.' },
-    { id: 'condition', label: 'Condición', sub: 'Si / Entonces', icon: GitBranch, color: 'amber', helpText: 'Evalúa una condición (ej. variable existe, valor es igual) y bifurca el flujo según el resultado.' },
-    { id: 'delay', label: 'Espera', sub: 'Escribiendo...', icon: HiMiniClock, color: 'slate', helpText: 'Pausa el flujo temporalmente simulando que el bot está escribiendo o esperando.' },
-    { id: 'webhook', label: 'Webhook', sub: 'API Externa', icon: HiMiniGlobeAlt, color: 'orange', helpText: 'Envía datos a un sistema externo o API de tu empresa.' },
-    { id: 'handoff', label: 'Humano', sub: 'Transferir', icon: HiMiniUserPlus, color: 'red', helpText: 'Detiene el bot y transfiere la conversación a un agente humano.' },
-    { id: 'email', label: 'Correo', sub: 'Enviar Email', icon: Mail, color: 'sky', helpText: 'Compone y envía un correo electrónico directamente desde el flujo a la dirección indicada.' },
+    { id: 'capture', label: 'Captura', sub: 'Pedir Dato', icon: HiMiniVariable, color: 'accent', helpText: 'Hace una pregunta y guarda la respuesta del usuario en una variable (ej. @nombre).' },
+    { id: 'capture_phone', label: 'Capturar Celular', sub: 'Pedir Número', icon: HiMiniVariable, color: 'accent', helpText: 'Pide al usuario su número de celular. Se valida y guarda automáticamente en el contacto.' },
+    { id: 'condition', label: 'Condición', sub: 'Si / Entonces', icon: GitBranch, color: 'accent', helpText: 'Evalúa una condición (ej. variable existe, valor es igual) y bifurca el flujo según el resultado.' },
+    { id: 'delay', label: 'Espera', sub: 'Escribiendo...', icon: HiMiniClock, color: 'accent', helpText: 'Pausa el flujo temporalmente simulando que el bot está escribiendo o esperando.' },
+    { id: 'webhook', label: 'Webhook', sub: 'API Externa', icon: HiMiniGlobeAlt, color: 'accent', helpText: 'Envía datos a un sistema externo o API de tu empresa.' },
+    { id: 'handoff', label: 'Humano', sub: 'Transferir', icon: HiMiniUserPlus, color: 'accent', helpText: 'Detiene el bot y transfiere la conversación a un agente humano.' },
+    { id: 'email', label: 'Correo', sub: 'Enviar Email', icon: Mail, color: 'accent', helpText: 'Compone y envía un correo electrónico directamente desde el flujo a la dirección indicada.' },
   ];
 
   const aiNodes = [
-    { id: 'llm', label: 'IA Completa', sub: 'Chat LLM', icon: HiMiniBolt, color: 'violet', helpText: 'Genera una respuesta usando un modelo de lenguaje (LLM) con contexto de la conversación.' },
-    { id: 'knowledge_retrieval', label: 'Base Conocimiento', sub: 'RAG', icon: HiMiniSquare3Stack3D, color: 'teal', helpText: 'Busca información relevante en una base de conocimiento y la usa como contexto.' },
+    { id: 'llm', label: 'IA Completa', sub: 'Chat LLM', icon: HiMiniBolt, color: 'accent', helpText: 'Genera una respuesta usando un modelo de lenguaje (LLM) con contexto de la conversación.' },
+    { id: 'knowledge_retrieval', label: 'Base Conocimiento', sub: 'RAG', icon: HiMiniSquare3Stack3D, color: 'accent', helpText: 'Busca información relevante en una base de conocimiento y la usa como contexto.' },
   ];
 
   const nodeColorStyles: Record<string, { border: string; icon: string }> = {
-    emerald: { border: 'hover:border-emerald-400', icon: 'group-hover:bg-emerald-500 group-hover:text-white' },
-    blue: { border: 'hover:border-blue-400', icon: 'group-hover:bg-blue-500 group-hover:text-white' },
-    violet: { border: 'hover:border-violet-400', icon: 'group-hover:bg-violet-500 group-hover:text-white' },
-    rose: { border: 'hover:border-rose-400', icon: 'group-hover:bg-rose-500 group-hover:text-white' },
-    amber: { border: 'hover:border-amber-400', icon: 'group-hover:bg-amber-500 group-hover:text-white' },
-    cyan: { border: 'hover:border-cyan-400', icon: 'group-hover:bg-cyan-500 group-hover:text-white' },
-    slate: { border: 'hover:border-slate-400', icon: 'group-hover:bg-slate-500 group-hover:text-white' },
-    orange: { border: 'hover:border-orange-400', icon: 'group-hover:bg-orange-500 group-hover:text-white' },
-    red: { border: 'hover:border-red-400', icon: 'group-hover:bg-red-500 group-hover:text-white' },
-    teal: { border: 'hover:border-teal-400', icon: 'group-hover:bg-teal-500 group-hover:text-white' },
-    sky: { border: 'hover:border-sky-400', icon: 'group-hover:bg-sky-500 group-hover:text-white' },
+    accent: { border: 'hover:border-accent-500', icon: 'group-hover:bg-accent-500 group-hover:text-white' },
   };
 
   const renderNodeButton = (node: any) => {
@@ -715,6 +738,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                     trigger: '#10b981',
                     text: '#3b82f6',
                     interactive: '#8b5cf6',
+                    confirmation: '#10b981',
                     media: '#f43f5e',
                     catalog: '#f59e0b',
                     capture: '#06b6d4',
@@ -733,6 +757,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                     trigger: '#059669',
                     text: '#2563eb',
                     interactive: '#7c3aed',
+                    confirmation: '#059669',
                     media: '#e11d48',
                     catalog: '#d97706',
                     capture: '#0891b2',
@@ -859,7 +884,7 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                     <div className="grid grid-cols-2 gap-3">{integrationNodes.map(renderNodeButton)}</div>
                   </div>
                   <div className="space-y-4 pt-4">
-                    <label className="text-[10px] font-black text-violet-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <label className="text-[10px] font-black text-accent-400 uppercase tracking-[0.2em] flex items-center gap-2">
                       <Sparkles className="w-3 h-3" /> IA
                     </label>
                     <div className="grid grid-cols-2 gap-3">{aiNodes.map(renderNodeButton)}</div>
@@ -942,19 +967,32 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                         {selectedNode.type === 'trigger' && <Zap className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'text' && <HiMiniChatBubbleBottomCenterText className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'interactive' && <HiMiniSquare3Stack3D className="w-4 h-4 text-accent-600" />}
+                        {selectedNode.type === 'confirmation' && <HiMiniCheckCircle className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'media' && <HiMiniVideoCamera className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'capture' && <HiMiniVariable className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'delay' && <HiMiniClock className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'webhook' && <HiMiniGlobeAlt className="w-4 h-4 text-accent-600" />}
                         {selectedNode.type === 'handoff' && <HiMiniUserPlus className="w-4 h-4 text-accent-600" />}
-                        {selectedNode.type === 'condition' && <GitBranch className="w-4 h-4 text-amber-600" />}
-                        {selectedNode.type === 'llm' && <Sparkles className="w-4 h-4 text-violet-600" />}
-                        {selectedNode.type === 'knowledge_retrieval' && <Library className="w-4 h-4 text-teal-600" />}
-                        {selectedNode.type === 'email' && <Mail className="w-4 h-4 text-sky-500" />}
+                        {selectedNode.type === 'condition' && <GitBranch className="w-4 h-4 text-accent-600" />}
+                        {selectedNode.type === 'llm' && <Sparkles className="w-4 h-4 text-accent-600" />}
+                        {selectedNode.type === 'knowledge_retrieval' && <Library className="w-4 h-4 text-accent-600" />}
+                        {selectedNode.type === 'email' && <Mail className="w-4 h-4 text-accent-600" />}
                       </div>
-                      <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest">{selectedNode.type}</h4>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Configuración del Nodo</p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-widest">{selectedNode.type}</h4>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Configuración del Nodo</p>
+                        </div>
+                        <div className="group/help relative">
+                          <div className="text-slate-300 dark:text-slate-600 hover:text-accent-500 cursor-help transition-colors p-0.5">
+                            <HelpCircle className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-60 p-3 bg-slate-900 dark:bg-slate-800 text-left rounded-xl shadow-xl opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all pointer-events-none z-50">
+                            <h5 className="text-[10px] font-black uppercase text-accent-400 tracking-widest mb-1">{selectedNode.type}</h5>
+                            <p className="text-[9px] font-medium text-slate-300 leading-relaxed">{NODE_HELP_TEXTS[selectedNode.type] || 'Configura el comportamiento de este nodo según tus necesidades.'}</p>
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -969,21 +1007,31 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                     </div>
                   </div>
 
-                  <div className="bg-accent-50 dark:bg-accent-500/5 p-5 rounded-2xl border border-accent-100 dark:border-accent-500/10 mb-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <HiMiniStar className={`w-4 h-4 ${selectedNode.data.isConversionNode ? 'text-accent-500 fill-accent-500' : 'text-slate-400'}`} />
+                  <div className="bg-accent-50 dark:bg-accent-500/5 px-3 py-2 rounded-lg border border-accent-100 dark:border-accent-500/10 mb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <HiMiniStar className={`w-3.5 h-3.5 shrink-0 ${selectedNode.data.isConversionNode ? 'text-accent-500 fill-accent-500' : 'text-slate-400'}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Cliente Potencial</span>
+                        <div className="group/help relative shrink-0">
+                          <div className="text-slate-300 dark:text-slate-600 hover:text-accent-500 cursor-help transition-colors p-0.5">
+                            <HelpCircle className="w-3 h-3" />
+                          </div>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-52 p-3 bg-slate-900 dark:bg-slate-800 text-left rounded-xl shadow-xl opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all pointer-events-none z-50">
+                            <h5 className="text-[10px] font-black uppercase text-accent-400 tracking-widest mb-1">Cliente Potencial</h5>
+                            <p className="text-[9px] font-medium text-slate-300 leading-relaxed">Si el cliente llega a este nodo, se marca automáticamente como cliente potencial al activarlo.</p>
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
+                          </div>
+                        </div>
                       </div>
                       <button
                         onClick={() => updateNodeData({ isConversionNode: !selectedNode.data.isConversionNode })}
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 ${selectedNode.data.isConversionNode ? 'bg-accent-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        className={`w-8 h-4 rounded-full relative transition-all duration-300 shrink-0 ${selectedNode.data.isConversionNode ? 'bg-accent-500' : 'bg-slate-300 dark:bg-slate-600'}`}
                       >
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 ${selectedNode.data.isConversionNode ? 'left-6' : 'left-1'}`} />
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow ${selectedNode.data.isConversionNode ? 'left-[18px]' : 'left-0.5'}`} />
                       </button>
                     </div>
                     {selectedNode.data.isConversionNode && (
-                      <p className="mt-2 text-[9px] font-bold text-accent-600 uppercase leading-tight animate-in fade-in slide-in-from-top-1">
+                      <p className="mt-1 pl-11 text-[9px] font-bold text-accent-600 uppercase leading-tight animate-in fade-in slide-in-from-top-1">
                         Si el usuario llega a este nodo, será marcado como cliente potencial.
                       </p>
                     )}
@@ -1001,38 +1049,99 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                   )}
 
                   {selectedNode.type === 'text' && (
-                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
                       <div>
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 block">Mensaje de Respuesta</label>
-                        <div className="relative group">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mensaje de Respuesta</label>
+                            <div className="group/help relative">
+                              <div className="text-slate-300 dark:text-slate-600 hover:text-accent-500 cursor-help transition-colors p-0.5">
+                                <HelpCircle className="w-3 h-3" />
+                              </div>
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-56 p-3 bg-slate-900 dark:bg-slate-800 text-left rounded-xl shadow-xl opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all pointer-events-none z-50">
+                                <h5 className="text-[10px] font-black uppercase text-accent-400 tracking-widest mb-1">Variables</h5>
+                                <p className="text-[9px] font-medium text-slate-300 leading-relaxed">Usa {'{{nombre}}'}, {'{{telefono}}'} o cualquier variable capturada con un nodo Captura. El bot las reemplaza automáticamente con los datos del contacto.</p>
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 tabular-nums">{(selectedNode.data.text || '').length} caracteres</span>
+                        </div>
+
+                        <div className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden focus-within:border-accent-500 transition-all bg-white dark:bg-slate-800/60 shadow-sm">
+                          <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40">
+                            <button onClick={() => insertFormatting('node-text', 'bold', 'text')} title="Negrita" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-black hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">B</button>
+                            <button onClick={() => insertFormatting('node-text', 'italic', 'text')} title="Cursiva" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm italic hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">I</button>
+                            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1.5" />
+                            <button
+                              onClick={() => insertFormatting('node-text', 'variable', 'text', '{{nombre}}')}
+                              title="Insertar variable {{nombre}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{nombre}}'}</button>
+                            <button
+                              onClick={() => insertFormatting('node-text', 'variable', 'text', '{{telefono}}')}
+                              title="Insertar variable {{telefono}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{telefono}}'}</button>
+                            <div className="flex-1" />
+                          </div>
                           <textarea
                             id="node-text"
                             value={selectedNode.data.text || ''}
                             onChange={(e) => updateNodeData({ text: e.target.value })}
                             placeholder="Escribe el mensaje que enviará el bot..."
-                            className="w-full p-8 bg-slate-50 dark:bg-slate-800/50 rounded-sm text-base font-medium resize-none outline-none border-2 border-transparent focus:border-accent-500 transition-all min-h-[400px] shadow-inner"
+                            className="w-full p-6 bg-transparent text-sm font-medium resize-none outline-none min-h-[320px] leading-relaxed"
                           />
-                          <div className="absolute bottom-6 right-8 flex gap-3">
-                            <button onClick={() => insertFormatting('node-text', 'bold', 'text')} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-700 rounded-sm shadow-lg text-lg font-black hover:scale-110 transition-all border border-slate-100 dark:border-slate-600 text-slate-900 dark:text-white">B</button>
-                            <button onClick={() => insertFormatting('node-text', 'italic', 'text')} className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-700 rounded-sm shadow-lg text-lg italic hover:scale-110 transition-all border border-slate-100 dark:border-slate-600 text-slate-900 dark:text-white">I</button>
-                          </div>
                         </div>
-                        <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-tight text-center italic">Puedes usar {'{{nombre}}'} para personalizar el mensaje.</p>
                       </div>
                     </div>
                   )}
 
                   {selectedNode.type === 'interactive' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="p-3 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-800/50 rounded-xl">
-                        <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 leading-relaxed">
-                          <span className="font-black uppercase">Cloud API:</span> Botones reales clickeables (máx. 3).{' '}
-                          <span className="font-black uppercase">QR:</span> Opciones numeradas como texto (sin límite).
-                        </p>
-                      </div>
                       <div>
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 block">Cuerpo del Mensaje</label>
-                        <textarea id="node-interactive" value={selectedNode.data.bodyText || ''} onChange={(e) => updateNodeData({ bodyText: e.target.value })} className="w-full p-5 bg-slate-50 dark:bg-slate-800/50 rounded-sm text-sm outline-none border-2 border-transparent focus:border-accent-500 transition-all font-medium" rows={4} />
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuerpo del Mensaje</label>
+                            <div className="group/help relative">
+                              <div className="text-slate-300 dark:text-slate-600 hover:text-accent-500 cursor-help transition-colors p-0.5">
+                                <HelpCircle className="w-3 h-3" />
+                              </div>
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-56 p-3 bg-slate-900 dark:bg-slate-800 text-left rounded-xl shadow-xl opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all pointer-events-none z-50">
+                                <h5 className="text-[10px] font-black uppercase text-accent-400 tracking-widest mb-1">Variables</h5>
+                                <p className="text-[9px] font-medium text-slate-300 leading-relaxed">Usa {'{{nombre}}'}, {'{{telefono}}'} o cualquier variable capturada con un nodo Captura. El bot las reemplaza automáticamente con los datos del contacto.</p>
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 tabular-nums">{(selectedNode.data.bodyText || '').length} caracteres</span>
+                        </div>
+
+                        <div className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden focus-within:border-accent-500 transition-all bg-white dark:bg-slate-800/60 shadow-sm">
+                          <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40">
+                            <button onClick={() => insertFormatting('node-interactive', 'bold', 'text')} title="Negrita" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-black hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">B</button>
+                            <button onClick={() => insertFormatting('node-interactive', 'italic', 'text')} title="Cursiva" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm italic hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">I</button>
+                            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1.5" />
+                            <button
+                              onClick={() => insertFormatting('node-interactive', 'variable', 'text', '{{nombre}}')}
+                              title="Insertar variable {{nombre}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{nombre}}'}</button>
+                            <button
+                              onClick={() => insertFormatting('node-interactive', 'variable', 'text', '{{telefono}}')}
+                              title="Insertar variable {{telefono}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{telefono}}'}</button>
+                            <div className="flex-1" />
+                          </div>
+                          <textarea
+                            id="node-interactive"
+                            value={selectedNode.data.bodyText || ''}
+                            onChange={(e) => updateNodeData({ bodyText: e.target.value })}
+                            placeholder="Escribe el mensaje que acompaña las opciones de respuesta..."
+                            className="w-full p-5 bg-transparent text-sm font-medium resize-none outline-none min-h-[140px] leading-relaxed"
+                          />
+                        </div>
                       </div>
 
                       <div>
@@ -1076,8 +1185,95 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                             >
                               <Plus className="w-4 h-4" /> Añadir Opción
                             </button>
-                          )}
+)}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedNode.type === 'confirmation' && (
+                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pregunta</label>
+                            <div className="group/help relative">
+                              <div className="text-slate-300 dark:text-slate-600 hover:text-accent-500 cursor-help transition-colors p-0.5">
+                                <HelpCircle className="w-3 h-3" />
+                              </div>
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-56 p-3 bg-slate-900 dark:bg-slate-800 text-left rounded-xl shadow-xl opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all pointer-events-none z-50">
+                                <h5 className="text-[10px] font-black uppercase text-accent-400 tracking-widest mb-1">Variables</h5>
+                                <p className="text-[9px] font-medium text-slate-300 leading-relaxed">Usa {'{{nombre}}'}, {'{{telefono}}'} o cualquier variable capturada con un nodo Captura.</p>
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 tabular-nums">{(selectedNode.data.bodyText || selectedNode.data.question || '').length} caracteres</span>
+                        </div>
+
+                        <div className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden focus-within:border-accent-500 transition-all bg-white dark:bg-slate-800/60 shadow-sm">
+                          <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40">
+                            <button onClick={() => insertFormatting('node-confirmation', 'bold', 'confirmation')} title="Negrita" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-black hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">B</button>
+                            <button onClick={() => insertFormatting('node-confirmation', 'italic', 'confirmation')} title="Cursiva" className="w-7 h-7 flex items-center justify-center rounded-lg text-sm italic hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all">I</button>
+                            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1.5" />
+                            <button
+                              onClick={() => insertFormatting('node-confirmation', 'variable', 'confirmation', '{{nombre}}')}
+                              title="Insertar variable {{nombre}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{nombre}}'}</button>
+                            <button
+                              onClick={() => insertFormatting('node-confirmation', 'variable', 'confirmation', '{{telefono}}')}
+                              title="Insertar variable {{telefono}}"
+                              className="px-2 h-6 rounded-md text-[9px] font-black font-mono tracking-wide bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 transition-all"
+                            >{'{{telefono}}'}</button>
+                            <div className="flex-1" />
+                          </div>
+                          <textarea
+                            id="node-confirmation"
+                            value={selectedNode.data.bodyText || selectedNode.data.question || ''}
+                            onChange={(e) => updateNodeData({ bodyText: e.target.value })}
+                            placeholder="¿Confirmas esta acción?"
+                            className="w-full p-5 bg-transparent text-sm font-medium resize-none outline-none min-h-[100px] leading-relaxed"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Etiqueta Sí (✓)</label>
+                          <input
+                            type="text"
+                            value={selectedNode.data.yesLabel || '✅ Sí'}
+                            onChange={(e) => updateNodeData({ yesLabel: e.target.value })}
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-800/60 rounded-xl border-2 border-emerald-200 dark:border-emerald-800/50 text-xs font-bold text-emerald-700 dark:text-emerald-300 outline-none focus:border-emerald-500 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Etiqueta No (✕)</label>
+                          <input
+                            type="text"
+                            value={selectedNode.data.noLabel || '❌ No'}
+                            onChange={(e) => updateNodeData({ noLabel: e.target.value })}
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-800/60 rounded-xl border-2 border-rose-200 dark:border-rose-800/50 text-xs font-bold text-rose-600 dark:text-rose-300 outline-none focus:border-rose-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Mensaje si responde algo incorrecto</label>
+                        <input
+                          type="text"
+                          value={selectedNode.data.retryMessage || 'Por favor responde Sí o No para continuar:'}
+                          onChange={(e) => updateNodeData({ retryMessage: e.target.value })}
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-800/60 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-accent-500 transition-all"
+                        />
+                      </div>
+
+                      <div className="p-4 bg-accent-50 dark:bg-accent-500/5 rounded-xl border border-accent-100 dark:border-accent-500/10">
+                        <h5 className="text-[10px] font-black uppercase text-accent-600 dark:text-accent-400 tracking-widest mb-1.5">Cómo conectar</h5>
+                        <p className="text-[9px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
+                          Arrastra desde la salida <span className="text-emerald-600 dark:text-emerald-400 font-black">Sí</span> para continuar el flujo y desde la salida <span className="text-rose-600 dark:text-rose-400 font-black">No</span> para repetir o volver al menú. El bot también entenderá "sí"/"no" escritos como texto.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -1208,11 +1404,6 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
 
                   {selectedNode.type === 'capture_phone' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800/50 rounded-xl">
-                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                          Este nodo pide al usuario su número de celular. Se valida automáticamente y se guarda en <span className="font-black">@telefono</span> del contacto.
-                        </p>
-                      </div>
                       <div>
                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 block">Mensaje al Usuario</label>
                         <textarea
@@ -1302,12 +1493,12 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
 
                   {selectedNode.type === 'condition' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="bg-amber-50 dark:bg-amber-500/5 p-5 rounded-sm border border-amber-100 dark:border-amber-500/10 mb-6">
+                      <div className="bg-accent-50 dark:bg-accent-500/5 p-5 rounded-sm border border-accent-100 dark:border-accent-500/10 mb-6">
                         <div className="flex items-center gap-3">
-                          <GitBranch className="w-5 h-5 text-amber-600" />
+                          <GitBranch className="w-5 h-5 text-accent-600" />
                           <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-400">Condición</h4>
-                            <p className="text-[9px] font-bold text-amber-600/70 uppercase">Evalúa y bifurca el flujo</p>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-accent-900 dark:text-accent-400">Condición</h4>
+                            <p className="text-[9px] font-bold text-accent-600/70 uppercase">Evalúa y bifurca el flujo</p>
                           </div>
                         </div>
                       </div>
@@ -1375,16 +1566,16 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                         />
                       </div>
 
-                      <div className="bg-slate-50 dark:bg-slate-800/20 p-5 rounded-sm border border-slate-100 dark:border-slate-800">
-                        <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Conexiones</h5>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800/50 rounded-sm border border-emerald-100 dark:border-emerald-900/30">
-                            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" />
+                      <div className="bg-slate-50 dark:bg-slate-800/20 p-3.5 rounded-sm border border-slate-100 dark:border-slate-800">
+                        <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Conexiones</h5>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-slate-800/50 rounded-sm border border-emerald-100 dark:border-emerald-900/30">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
                             <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase">Verdadero (Sí)</span>
                             <span className="text-[8px] text-slate-400 font-medium ml-auto">Conecta aquí si se cumple</span>
                           </div>
-                          <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800/50 rounded-sm border border-rose-100 dark:border-rose-900/30">
-                            <div className="w-3 h-3 rounded-full bg-rose-500 shadow-sm" />
+                          <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-slate-800/50 rounded-sm border border-rose-100 dark:border-rose-900/30">
+                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm" />
                             <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase">Falso (No)</span>
                             <span className="text-[8px] text-slate-400 font-medium ml-auto">Conecta aquí si no se cumple</span>
                           </div>
@@ -1417,12 +1608,12 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
 
                   {selectedNode.type === 'llm' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="bg-violet-50 dark:bg-violet-500/5 p-5 rounded-sm border border-violet-100 dark:border-violet-500/10 mb-6">
+                      <div className="bg-accent-50 dark:bg-accent-500/5 p-5 rounded-sm border border-accent-100 dark:border-accent-500/10 mb-6">
                         <div className="flex items-center gap-3">
-                          <Sparkles className="w-5 h-5 text-violet-600" />
+                          <Sparkles className="w-5 h-5 text-accent-600" />
                           <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-violet-900 dark:text-violet-400">IA Completa</h4>
-                            <p className="text-[9px] font-bold text-violet-600/70 uppercase">Genera respuesta con LLM</p>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-accent-900 dark:text-accent-400">IA Completa</h4>
+                            <p className="text-[9px] font-bold text-accent-600/70 uppercase">Genera respuesta con LLM</p>
                           </div>
                         </div>
                       </div>
@@ -1545,12 +1736,12 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
 
                   {selectedNode.type === 'knowledge_retrieval' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="bg-teal-50 dark:bg-teal-500/5 p-5 rounded-sm border border-teal-100 dark:border-teal-500/10 mb-6">
+                      <div className="bg-accent-50 dark:bg-accent-500/5 p-5 rounded-sm border border-accent-100 dark:border-accent-500/10 mb-6">
                         <div className="flex items-center gap-3">
-                          <Library className="w-5 h-5 text-teal-600" />
+                          <Library className="w-5 h-5 text-accent-600" />
                           <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-teal-900 dark:text-teal-400">Base de Conocimiento</h4>
-                            <p className="text-[9px] font-bold text-teal-600/70 uppercase">Recupera contexto relevante</p>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-accent-900 dark:text-accent-400">Base de Conocimiento</h4>
+                            <p className="text-[9px] font-bold text-accent-600/70 uppercase">Recupera contexto relevante</p>
                           </div>
                         </div>
                       </div>
@@ -1594,12 +1785,12 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
 
                   {selectedNode.type === 'email' && (
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                      <div className="bg-sky-50 dark:bg-sky-500/5 p-5 rounded-sm border border-sky-100 dark:border-sky-500/10 mb-6">
+                      <div className="bg-accent-50 dark:bg-accent-500/5 p-5 rounded-sm border border-accent-100 dark:border-accent-500/10 mb-6">
                         <div className="flex items-center gap-3">
-                          <Mail className="w-5 h-5 text-sky-600" />
+                          <Mail className="w-5 h-5 text-accent-600" />
                           <div>
-                            <h4 className="text-xs font-black uppercase tracking-widest text-sky-900 dark:text-sky-400">Enviar Correo</h4>
-                            <p className="text-[9px] font-bold text-sky-600/70 uppercase">Compone y envía un email saliente</p>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-accent-900 dark:text-accent-400">Enviar Correo</h4>
+                            <p className="text-[9px] font-bold text-accent-600/70 uppercase">Compone y envía un email saliente</p>
                           </div>
                         </div>
                       </div>
@@ -1675,89 +1866,92 @@ export const FlowBuilderContent = ({ flowData, onBack }: FlowBuilderContentProps
                     </div>
                   )}
 
-                  {/* Connections Section at the bottom */}
-                  <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800/50">
-                    {/* Incoming Connections */}
+                  {/* Conexiones del nodo */}
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800/50">
                     <details className="group bg-slate-50 dark:bg-slate-800/20 rounded-sm border border-slate-100 dark:border-slate-800/50 overflow-hidden">
-                      <summary className="flex items-center justify-between p-4 cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 select-none">
-                        <span className="flex items-center gap-2 text-accent-600 dark:text-accent-500">
+                      <summary className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 select-none">
+                        <span className="flex items-center gap-1.5 text-accent-600 dark:text-accent-500">
                           <HiMiniPlus className="w-3 h-3 rotate-45" />
-                          Conexiones de Entrada: {incomingEdges.length}
+                          Conexiones
                         </span>
-                        <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform text-slate-400" />
-                      </summary>
-                      <div className="p-4 pt-0 space-y-2">
-                        {incomingEdges.length > 0 ? (
-                          incomingEdges.map(e => {
-                            const sourceNode = nodes.find(n => n.id === e.source);
-                            return (
-                              <div key={e.id} className="group/conn flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-sm border border-slate-100 dark:border-slate-700">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-500 shadow-sm shadow-accent-500/50" />
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
-                                      {sourceNode?.type === 'interactive' && e.sourceHandle ? (
-                                        `Botón: ${sourceNode.data.buttons?.find((b: any) => b.id === e.sourceHandle)?.text || 'Opción'}`
-                                      ) : (
-                                        sourceNode?.type || 'Nodo'
-                                      )}
-                                    </span>
-                                    <span className="text-[8px] font-bold text-slate-400 truncate max-w-[150px]">
-                                      {sourceNode?.data.text || sourceNode?.data.bodyText || sourceNode?.data.question || (sourceNode?.data.keywords?.join(', ')) || 'Sin contenido'}
-                                    </span>
-                                  </div>
-                                </div>
-                                <button onClick={() => setEdges(eds => eds.filter(ed => ed.id !== e.id))} className="p-1.5 text-rose-500 opacity-0 group-hover/conn:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-sm transition-all">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-[10px] italic text-slate-400 font-medium text-center py-8">Sin conexiones de entrada</p>
-                        )}
-                      </div>
-                    </details>
-
-                    {/* Outgoing Connections */}
-                    <details className="group bg-slate-50 dark:bg-slate-800/20 rounded-sm border border-slate-100 dark:border-slate-800/50 overflow-hidden">
-                      <summary className="flex items-center justify-between p-4 cursor-pointer font-black text-[9px] uppercase tracking-widest text-slate-400 select-none">
-                        <span className="flex items-center gap-2 text-accent-600 dark:text-accent-500">
-                          <HiMiniPlus className="w-3 h-3" />
-                          Conexiones de Salida: {outgoingEdges.length}
+                        <span className="text-[8px] font-black text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-1.5 py-0.5 rounded-sm">{incomingEdges.length + outgoingEdges.length}</span>
+                        <span className="ml-auto flex items-center gap-2.5 text-[8px] font-bold text-slate-400">
+                          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Entrada</span>
+                          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-accent-500" /> Salida</span>
+                          <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform text-slate-400" />
                         </span>
-                        <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform text-slate-400" />
                       </summary>
-                      <div className="p-4 pt-0 space-y-2">
-                        {outgoingEdges.length > 0 ? (
-                          outgoingEdges.map(e => {
-                            const targetNode = nodes.find(n => n.id === e.target);
-                            return (
-                              <div key={e.id} className="group/conn flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-sm border border-slate-100 dark:border-slate-700">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent-500 shadow-sm shadow-accent-500/50" />
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
-                                      {selectedNode.type === 'interactive' && e.sourceHandle ? (
-                                        `Desde: ${selectedNode.data.buttons?.find((b: any) => b.id === e.sourceHandle)?.text || 'Botón'}`
-                                      ) : (
-                                        targetNode?.type || 'Siguiente'
-                                      )}
-                                    </span>
-                                    <span className="text-[8px] font-bold text-slate-400 truncate max-w-[150px]">
-                                      {targetNode?.data.text || targetNode?.data.bodyText || targetNode?.data.question || 'Conectado'}
-                                    </span>
+                      <div className="px-3.5 pb-3.5 space-y-3">
+                        <div>
+                          <p className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-emerald-500 mb-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> De Entrada
+                          </p>
+                          {incomingEdges.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {incomingEdges.map(e => {
+                                const sourceNode = nodes.find(n => n.id === e.source);
+                                return (
+                                  <div key={e.id} className="group/conn flex items-center justify-between gap-2 px-2.5 py-2 bg-white dark:bg-slate-800/50 rounded-sm border border-slate-100 dark:border-slate-700">
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 truncate">
+                                        {sourceNode?.type === 'interactive' && e.sourceHandle ? (
+                                          `Botón: ${sourceNode.data.buttons?.find((b: any) => b.id === e.sourceHandle)?.text || 'Opción'}`
+                                        ) : sourceNode?.type === 'confirmation' && e.sourceHandle ? (
+                                          e.sourceHandle === 'confirm_yes' ? 'Sí (confirmar)' : e.sourceHandle === 'confirm_no' ? 'No (repetir/volver)' : 'Confirmación'
+                                        ) : (
+                                          sourceNode?.type || 'Nodo'
+                                        )}
+                                      </span>
+                                      <span className="text-[8px] font-bold text-slate-400 truncate">
+                                        {sourceNode?.data.text || sourceNode?.data.bodyText || sourceNode?.data.question || (sourceNode?.data.keywords?.join(', ')) || 'Sin contenido'}
+                                      </span>
+                                    </div>
+                                    <button onClick={() => setEdges(eds => eds.filter(ed => ed.id !== e.id))} className="p-1.5 text-rose-500 opacity-0 group-hover/conn:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-sm transition-all shrink-0">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
-                                </div>
-                                <button onClick={() => setEdges(eds => eds.filter(ed => ed.id !== e.id))} className="p-1.5 text-rose-500 opacity-0 group-hover/conn:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-sm transition-all">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-[10px] italic text-slate-400 font-medium text-center py-8">Sin conexiones de salida</p>
-                        )}
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[9px] italic text-slate-400 font-medium text-center py-2.5">Sin conexiones de entrada</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-accent-500 mb-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent-500" /> De Salida
+                          </p>
+                          {outgoingEdges.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {outgoingEdges.map(e => {
+                                const targetNode = nodes.find(n => n.id === e.target);
+                                return (
+                                  <div key={e.id} className="group/conn flex items-center justify-between gap-2 px-2.5 py-2 bg-white dark:bg-slate-800/50 rounded-sm border border-slate-100 dark:border-slate-700">
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 truncate">
+                                        {selectedNode.type === 'interactive' && e.sourceHandle ? (
+                                          `Desde: ${selectedNode.data.buttons?.find((b: any) => b.id === e.sourceHandle)?.text || 'Botón'}`
+                                        ) : selectedNode.type === 'confirmation' && e.sourceHandle ? (
+                                          e.sourceHandle === 'confirm_yes' ? `Desde: ${selectedNode.data.yesLabel || 'Sí'}` : e.sourceHandle === 'confirm_no' ? `Desde: ${selectedNode.data.noLabel || 'No'}` : 'Desde: Confirmación'
+                                        ) : (
+                                          targetNode?.type || 'Siguiente'
+                                        )}
+                                      </span>
+                                      <span className="text-[8px] font-bold text-slate-400 truncate">
+                                        {targetNode?.data.text || targetNode?.data.bodyText || targetNode?.data.question || 'Conectado'}
+                                      </span>
+                                    </div>
+                                    <button onClick={() => setEdges(eds => eds.filter(ed => ed.id !== e.id))} className="p-1.5 text-rose-500 opacity-0 group-hover/conn:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-sm transition-all shrink-0">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[9px] italic text-slate-400 font-medium text-center py-2.5">Sin conexiones de salida</p>
+                          )}
+                        </div>
                       </div>
                     </details>
                   </div>
