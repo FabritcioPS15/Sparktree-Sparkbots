@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface WhatsAppNumber {
   id: string;
@@ -28,9 +29,12 @@ export const WhatsAppProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [numbers, setNumbers] = useState<WhatsAppNumber[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    fetchNumbers();
-  }, []);
+    if (user) fetchNumbers();
+    else { setNumbers([]); setLoading(false); }
+  }, [user]);
 
   const fetchNumbers = async () => {
     try {
