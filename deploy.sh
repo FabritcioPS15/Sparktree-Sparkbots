@@ -36,9 +36,10 @@ echo "📥 [4/7] Clonando repositorio..."
 if [ -d "/opt/sparktree" ]; then
     echo "   Repositorio ya existe, haciendo pull..."
     cd /opt/sparktree
-    git pull origin main
+    git checkout multiempresa
+    git pull origin multiempresa
 else
-    git clone https://github.com/FabritcioPS15/Sparktree-Sparkbots.git /opt/sparktree
+    git clone -b multiempresa https://github.com/FabritcioPS15/Sparktree-Sparkbots.git /opt/sparktree
     cd /opt/sparktree
 fi
 
