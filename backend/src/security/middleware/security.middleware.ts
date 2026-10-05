@@ -39,7 +39,7 @@ export const rateLimit = (windowMs: number = 60000, maxRequests: number = 100) =
 /**
  * Strict rate limiting for authentication endpoints
  */
-export const authRateLimit = rateLimit(15 * 60 * 1000, 5); // 5 requests per 15 minutes
+export const authRateLimit = rateLimit(15 * 60 * 1000, process.env.NODE_ENV === 'development' ? 100 : 5); // 100 requests in dev, 5 in prod per 15 minutes
 
 /**
  * API rate limiting

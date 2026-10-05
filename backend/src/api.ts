@@ -455,9 +455,8 @@ httpServer.listen(PORT, async () => {
   try {
     const ngrok = require("@ngrok/ngrok");
     const forwarder = await ngrok.forward({
-      addr: 3000,
+      addr: PORT,
       authtoken_from_env: true,
-      domain: "daintily-bundle-diocese.ngrok-free.dev",
     });
     console.log(`🌐 Ngrok available at: ${forwarder.url()}`);
   } catch (error) {

@@ -1503,6 +1503,57 @@ export const downloadDynamicTemplateExcel = async (variables: string[], template
   return response.data;
 };
 
+export const exportReminderExcel = async (id: string, reminderName?: string): Promise<void> => {
+  try {
+    const response = await api.get(`/reminders/${id}/export-excel`, { responseType: 'blob' });
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const cleanName = (reminderName || 'recordatorio').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    link.download = `reporte_${cleanName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error exporting reminder report:', error);
+    throw error;
+  }
+};
+
+export const exportGeneralRemindersExcel = async (): Promise<void> => {
+  try {
+    const response = await api.get('/reminders/export/general', { responseType: 'blob' });
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `reporte_general_recordatorios_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error exporting general reminders report:', error);
+    throw error;
+  }
+};
+
+export const getAllReminderContacts = async (id: string) => {
+  try {
+    const response = await api.get(`/reminders/${id}/contacts-all`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all reminder contacts:', error);
+    throw error;
+  }
+};
+
 export const getReminders = async () => {
   try {
     const response = await api.get('/reminders');

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud, FileSpreadsheet, ChevronLeft, ChevronRight, Send,
-  Smartphone, Zap, Check, Calendar, RotateCcw, Clock, FileText, Download, Image, X, Users, Plus
+  Smartphone, Zap, Check, Calendar, RotateCcw, Clock, FileText, Download, Image, X, Users, Plus, Info
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Loader } from '../../../components/ui/Loader';
@@ -53,6 +53,10 @@ const stepsMeta = [
   { label: 'Programación', desc: 'Cuándo enviar' },
   { label: 'Revisión', desc: 'Confirma y activa' },
 ];
+
+// Vista previa de la plantilla Excel estática (coincide con /reminders/template-excel)
+const templatePreviewHeaders = ['telefono', 'nombre_completo', 'placa', 'dni', 'fecha_revision', 'dias'];
+const templatePreviewRow = ['999888777', 'Juan Pérez García', 'ABC-123', '45678901', '15/08/2026', 'auto'];
 
 export const CreateReminderModal = ({ open, onClose, onCreated }: CreateReminderModalProps) => {
   const { addNotification } = useNotifications();
@@ -538,18 +542,75 @@ export const CreateReminderModal = ({ open, onClose, onCreated }: CreateReminder
               </>
             )}
           </div>
-          <button
-            onClick={downloadTemplate}
-            className="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all cursor-pointer group"
-          >
-            <div className="p-2 bg-emerald-500/10 rounded-lg group-hover:bg-emerald-500/20 transition-all">
-              <Download className="w-4 h-4" />
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 bg-emerald-500/5">
+              <div className="p-2 bg-emerald-500/10 rounded-lg shrink-0">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-black text-slate-800 dark:text-slate-100">Descargar plantilla Excel</p>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest">.xlsx</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  100% editable, lista para copiar/pegar contactos. La columna <span className="text-emerald-600 dark:text-emerald-400 font-bold">telefono</span> es obligatoria.
+                </p>
+              </div>
             </div>
-            <div className="text-left">
-              <p className="font-bold">Descargar plantilla Excel (.xlsx)</p>
-              <p className="text-[10px] opacity-70">Archivo con 2 hojas: datos de ejemplo y guía de llenado. Columnas: teléfono, placa, nombre, DNI, fecha revisión, días restantes, mensaje</p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[10px] font-medium">
+                <thead>
+                  <tr>
+                    {templatePreviewHeaders.map((h, i) => (
+                      <th
+                        key={h}
+                        className={`px-2.5 py-2 text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap border-r border-[#164a2c] last:border-r-0 ${
+                          i === 0 ? 'bg-[#1a5c38]' : 'bg-[#217346]'
+                        }`}
+                      >
+                        <span className={`inline-flex items-center gap-1 ${h === 'telefono' ? 'text-orange-300' : ''}`}>
+                          {h === 'telefono' ? <span className="text-[8px] bg-orange-400 text-black px-1 py-px rounded font-black">req*</span> : null}
+                          {h}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {templatePreviewHeaders.map((h, i) => (
+                      <td key={i} className={`px-2.5 py-2 bg-white dark:bg-slate-900 whitespace-nowrap border-b border-r border-slate-100 dark:border-slate-800 last:border-r-0 ${h === 'dias' ? 'text-emerald-600 dark:text-emerald-400 italic font-bold' : 'text-slate-600 dark:text-slate-300'}`}>
+                        {h === 'dias' ? (
+                          <span className="inline-flex items-center gap-1" title="Se calcula automáticamente">
+                            {templatePreviewRow[i]} <Clock className="w-2.5 h-2.5" />
+                          </span>
+                        ) : (
+                          templatePreviewRow[i]
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </button>
+
+            <div className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800">
+              <Info className="w-3 h-3 text-slate-400 shrink-0" />
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                La columna <span className="font-bold text-emerald-600 dark:text-emerald-400">dias</span> se calcula sola con HOY(): días transcurridos desde <span className="font-bold">fecha_revision</span> (columna E). Si la fecha está vacía, queda vacío.
+              </p>
+            </div>
+
+            <div className="px-3 py-3">
+              <button
+                onClick={downloadTemplate}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-lg text-xs font-black bg-[#217346] text-white hover:bg-[#1a5c38] transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" /> Descargar plantilla (.xlsx)
+              </button>
+            </div>
+          </div>
 
           {parseError && (
             <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-bold text-red-500">

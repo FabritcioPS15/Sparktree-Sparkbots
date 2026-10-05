@@ -10,78 +10,49 @@ const router = express.Router();
 router.use(authenticateToken);
 router.use(tenantMiddleware.use.bind(tenantMiddleware));
 
-// GET /api/reminders/template-excel - Descargar plantilla Excel
+// GET /api/reminders/template-excel - Descargar plantilla Excel limpia y editable
 router.get('/template-excel', async (req: any, res: any) => {
   try {
     const wb = XLSX.utils.book_new();
 
-    const headers = ['telefono', 'placa', 'nombre_completo', 'dni', 'fecha_revision', 'dias', 'mensaje'];
-    const sampleData = [
-      ['999888777', 'ABC-123', 'Juan Pérez García', '45678901', '15/08/2026', 12, 'Estimado(a) Juan, su vehículo con placa ABC-123 pasó su revisión el día 15/08/2026 y está próxima a vencer. Le invitamos a pasar su revisión técnica con nosotros. Si es así, escribe "REVISIÓN" para que podamos atenderlo.'],
-      ['999777666', 'XYZ-456', 'María López Martínez', '12345678', '20/08/2026', 17, 'Estimado(a) María, su vehículo con placa XYZ-456 pasó su revisión el día 20/08/2026 y está próxima a vencer. Le invitamos a pasar su revisión técnica con nosotros. Si es así, escribe "REVISIÓN" para que podamos atenderlo.'],
-      ['999666555', 'DEF-789', 'Carlos Rodríguez Soto', '87654321', '25/08/2026', 22, 'Estimado(a) Carlos, su vehículo con placa DEF-789 pasó su revisión el día 25/08/2026 y está próxima a vencer. Le invitamos a pasar su revisión técnica con nosotros. Si es así, escribe "REVISIÓN" para que podamos atenderlo.'],
+    const headers = ['telefono', 'nombre_completo', 'placa', 'dni', 'fecha_revision', 'dias'];
+
+    // dias se calcula solo en Excel: días transcurridos desde fecha_revision (columna E)
+    // =SI(E2="";"";HOY()-E2) -> se guarda en inglés (=IF/ TODAY) y Excel lo muestra localizado.
+    // Fecha base = columna E (fecha_revision); resultado = número entero con formato General.
+    const formulaCell = (rowNumber: number, cachedValue: number) => ({
+      f: `=IF(E${rowNumber}="","",TODAY()-E${rowNumber})`,
+      t: 'n' as const,
+      v: cachedValue,
+      z: 'General',
+    });
+
+    const sampleData: any[][] = [
+      ['999888777', 'Juan Pérez García', 'ABC-123', '45678901', '15/08/2026', formulaCell(2, 37)],
+      ['999777666', 'María López Martínez', 'XYZ-456', '12345678', '20/08/2026', formulaCell(3, 32)],
+      ['999666555', 'Carlos Rodríguez Soto', 'DEF-789', '87654321', '25/08/2026', formulaCell(4, 27)],
     ];
 
     const wsData = [headers, ...sampleData];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
+    // Configurar anchos de columna amplios para fácil lectura y edición
     ws['!cols'] = [
-      { wch: 15 },  // telefono
-      { wch: 12 },  // placa
-      { wch: 25 },  // nombre_completo
-      { wch: 12 },  // dni
-      { wch: 16 },  // fecha_revision
-      { wch: 15 },  // dias_restantes
-      { wch: 60 },  // mensaje
+      { wch: 18 },  // telefono
+      { wch: 28 },  // nombre_completo
+      { wch: 15 },  // placa
+      { wch: 15 },  // dni
+      { wch: 18 },  // fecha_revision
+      { wch: 12 },  // dias
     ];
 
-    // Estilo de cabecera (negrita)
-    const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
-      if (!ws[cellRef]) continue;
-      ws[cellRef].s = {
-        font: { bold: true, sz: 12 },
-        fill: { fgColor: { rgb: 'D9E1F2' } },
-        alignment: { horizontal: 'center' },
-      };
-    }
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Recordatorios');
-
-    // Hoja de instrucciones
-    const instrucciones = [
-      ['INSTRUCCIONES PARA LLENAR LA PLANTILLA'],
-      [''],
-      ['Columna', 'Descripción', 'Ejemplo'],
-      ['telefono', 'Número de WhatsApp del contacto (obligatorio)', '999888777'],
-      ['placa', 'Placa del vehículo', 'ABC-123'],
-      ['nombre_completo', 'Nombre y apellidos del cliente', 'Juan Pérez García'],
-      ['dni', 'Número de documento de identidad', '45678901'],
-      ['fecha_revision', 'Fecha de la revisión vehicular', '15/08/2026'],
-      ['dias_restantes', 'Días que faltan para que venza la revisión', '12'],
-      ['mensaje', 'Mensaje contextual del recordatorio', 'Su revisión está próxima a vencer...'],
-      [''],
-      ['NOTAS IMPORTANTES:'],
-      ['1. La columna "telefono" es obligatoria y debe contener solo números.'],
-      ['2. Las demás columnas son opcionales y se usan como variables en el mensaje.'],
-      ['3. Puedes agregar más columnas si lo necesitas (ej: email, modelo_vehiculo, etc.).'],
-      ['4. Guarda el archivo como .xlsx antes de subirlo al sistema.'],
-      ['5. En el mensaje del recordatorio usa {{nombre_completo}}, {{placa}}, etc. para insertar datos.'],
-    ];
-
-    const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-    wsInstrucciones['!cols'] = [
-      { wch: 20 },
-      { wch: 55 },
-      { wch: 35 },
-    ];
-    XLSX.utils.book_append_sheet(wb, wsInstrucciones, 'Instrucciones');
+    XLSX.utils.book_append_sheet(wb, ws, 'Contactos');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=plantilla_recordatorios.xlsx');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.send(Buffer.from(buffer));
   } catch (err: any) {
     console.error('[Reminders] Error generating template:', err);
@@ -99,34 +70,37 @@ router.post('/template-excel-dynamic', async (req: any, res: any) => {
 
     const wb = XLSX.utils.book_new();
     const headers = ['telefono', ...variables];
-    const sampleRow = variables.map((v: string) => `[ej: ${v}]`);
-    const wsData = [headers, ['999888777', ...sampleRow], ['999777666', ...sampleRow]];
+
+    const sampleRow1 = ['999888777', ...variables.map((v: string) => {
+      const lower = v.toLowerCase();
+      if (lower.includes('nom') || lower.includes('cli')) return 'Juan Pérez';
+      if (lower.includes('plac') || lower.includes('veh')) return 'ABC-123';
+      if (lower.includes('fec') || lower.includes('date')) return '15/08/2026';
+      if (lower.includes('dni') || lower.includes('doc')) return '45678901';
+      if (lower.includes('monto') || lower.includes('precio')) return '150.00';
+      return `Valor ${v}`;
+    })];
+
+    const sampleRow2 = ['999777666', ...variables.map((v: string) => {
+      const lower = v.toLowerCase();
+      if (lower.includes('nom') || lower.includes('cli')) return 'María López';
+      if (lower.includes('plac') || lower.includes('veh')) return 'XYZ-456';
+      if (lower.includes('fec') || lower.includes('date')) return '20/08/2026';
+      if (lower.includes('dni') || lower.includes('doc')) return '12345678';
+      if (lower.includes('monto') || lower.includes('precio')) return '150.00';
+      return `Valor ${v}`;
+    })];
+
+    const wsData = [headers, sampleRow1, sampleRow2];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length + 4, 18) }));
+    ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length + 8, 20) }));
 
     XLSX.utils.book_append_sheet(wb, ws, 'Contactos');
-
-    const instrucciones = [
-      ['PLANTILLA DINÁMICA'],
-      templateName ? [`Template Meta: ${templateName}`] : [''],
-      [''],
-      ['Columna', 'Descripción', 'Requerido'],
-      ['telefono', 'Número de WhatsApp (solo dígitos)', 'SÍ'],
-      ...variables.map((v: string) => [v, `Variable {{${v}}} del template`, 'SÍ']),
-      [''],
-      ['NOTAS:'],
-      ['1. La columna "telefono" es obligatoria.'],
-      ['2. Cada columna corresponde a una variable {{nombre}} del template Meta.'],
-      ['3. Guarda como .xlsx antes de subir.'],
-    ];
-
-    const wsInst = XLSX.utils.aoa_to_sheet(instrucciones);
-    wsInst['!cols'] = [{ wch: 20 }, { wch: 50 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, wsInst, 'Instrucciones');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=plantilla_${templateName || 'template'}.xlsx`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.send(Buffer.from(buffer));
   } catch (err: any) {
     console.error('[Reminders] Error generating dynamic template:', err);
@@ -150,6 +124,24 @@ router.post('/parse-excel', async (req: any, res: any) => {
   }
 });
 
+// GET /api/reminders/export/general - Exportar reporte consolidado de todos los recordatorios en Excel
+router.get('/export/general', async (req: any, res: any) => {
+  try {
+    const orgId = req.organizationId;
+    if (!orgId) return res.status(404).json({ error: 'Organization not found' });
+
+    const { buffer, fileName } = await remindersService.exportGeneralRemindersExcel(orgId);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(Buffer.from(buffer));
+  } catch (err: any) {
+    console.error('[Reminders] Error exporting general report:', err);
+    res.status(500).json({ error: 'No se pudo generar el reporte general en Excel' });
+  }
+});
+
 // GET /api/reminders - Listar recordatorios
 router.get('/', async (req: any, res: any) => {
   try {
@@ -161,6 +153,38 @@ router.get('/', async (req: any, res: any) => {
   } catch (err: any) {
     console.error('[Reminders] Error listing reminders:', err);
     res.status(500).json({ error: 'No se pudieron cargar los recordatorios' });
+  }
+});
+
+// GET /api/reminders/:id/export-excel - Exportar reporte detallado de contactos y estados en Excel
+router.get('/:id/export-excel', async (req: any, res: any) => {
+  try {
+    const orgId = req.organizationId;
+    if (!orgId) return res.status(404).json({ error: 'Organization not found' });
+
+    const { buffer, fileName } = await remindersService.exportReminderReportExcel(req.params.id, orgId);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(Buffer.from(buffer));
+  } catch (err: any) {
+    console.error('[Reminders] Error exporting reminder report:', err);
+    res.status(500).json({ error: err.message || 'No se pudo generar el reporte del recordatorio en Excel' });
+  }
+});
+
+// GET /api/reminders/:id/contacts-all - Obtener todos los contactos de un recordatorio sin paginar
+router.get('/:id/contacts-all', async (req: any, res: any) => {
+  try {
+    const orgId = req.organizationId;
+    if (!orgId) return res.status(404).json({ error: 'Organization not found' });
+
+    const contacts = await remindersService.getAllReminderContacts(req.params.id, orgId);
+    res.json(contacts);
+  } catch (err: any) {
+    console.error('[Reminders] Error getting all contacts:', err);
+    res.status(500).json({ error: 'No se pudieron cargar todos los contactos' });
   }
 });
 

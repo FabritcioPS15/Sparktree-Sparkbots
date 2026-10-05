@@ -45,8 +45,21 @@ interface SendState {
   cancelled: boolean;
 }
 
-function normalizePhone(raw: string): string {
-  const digits = String(raw || '').replace(/\D/g, '');
+function normalizePhone(raw: any): string {
+  if (raw === null || raw === undefined) return '';
+  let str = '';
+  if (typeof raw === 'number') {
+    str = raw.toLocaleString('fullwide', { useGrouping: false });
+  } else {
+    str = String(raw).trim();
+    if (/[eE]\+?/.test(str)) {
+      const num = Number(str);
+      if (!isNaN(num)) {
+        str = num.toLocaleString('fullwide', { useGrouping: false });
+      }
+    }
+  }
+  const digits = str.replace(/\D/g, '');
   if (digits.length === 9 && !digits.startsWith('51')) {
     return '51' + digits;
   }
@@ -58,7 +71,7 @@ function normalizePhone(raw: string): string {
 const DATE_HINT_PATTERN = /fecha|fec\.?|date|vence|vencimiento|revis|dia|day|nacimiento|nac\b|hora|fecha_revision/i;
 
 function normalizeCellValue(value: any, key: string): string {
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') return value.trim();
 
   if (value instanceof Date) {
     const y = value.getFullYear();
@@ -83,7 +96,7 @@ function normalizeCellValue(value: any, key: string): string {
     }
   }
 
-  return String(value ?? '');
+  return String(value ?? '').trim();
 }
 
 function escapeRegExp(text: string): string {
@@ -103,23 +116,41 @@ export function renderTemplate(template: string, variables: Record<string, strin
 
 export function parseExcelBase64(base64Data: string): ParsedExcel {
   const buffer = Buffer.from(base64Data, 'base64');
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const json: Array<Record<string, any>> = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, cellNF: false, cellText: true });
 
-  if (json.length === 0) {
+  // Buscar la hoja más adecuada que tenga datos y columna de teléfono
+  let selectedSheet: any = null;
+  let bestJson: Array<Record<string, any>> = [];
+  let bestPhoneKey = '';
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+    const json: Array<Record<string, any>> = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+    if (json.length > 0) {
+      const headers = Object.keys(json[0]);
+      const foundPhone = headers.find((h) => PHONE_HEADER_PATTERN.test(h));
+      if (foundPhone) {
+        selectedSheet = sheet;
+        bestJson = json;
+        bestPhoneKey = foundPhone;
+        break;
+      } else if (bestJson.length === 0) {
+        bestJson = json;
+      }
+    }
+  }
+
+  if (bestJson.length === 0) {
     return { headers: [], phoneKey: '', rows: [], total: 0 };
   }
 
-  const headers = Object.keys(json[0]);
-  const phoneKey =
-    headers.find((h) => PHONE_HEADER_PATTERN.test(h)) ||
-    headers[0];
+  const headers = Object.keys(bestJson[0]).map((h) => h.trim()).filter(Boolean);
+  const phoneKey = bestPhoneKey || headers.find((h) => PHONE_HEADER_PATTERN.test(h)) || headers[0];
 
   const rows: ParsedContact[] = [];
-  for (const row of json) {
-    const rawPhone = String(row[phoneKey] ?? '');
+  for (const row of bestJson) {
+    const rawPhone = row[phoneKey];
     const phone = normalizePhone(rawPhone);
     if (!phone) continue;
 
@@ -305,6 +336,269 @@ export class RemindersService {
 
     if (error) throw error;
     return { contacts: contacts || [], count: count || 0 };
+  }
+
+  async getAllReminderContacts(reminderId: string, organizationId: string) {
+    const reminder = await this.getReminder(reminderId, organizationId);
+    if (!reminder) throw new Error('Recordatorio no encontrado');
+
+    const PAGE_SIZE = 1000;
+    let allContacts: any[] = [];
+    let offset = 0;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from('reminder_contacts')
+        .select('*')
+        .eq('reminder_id', reminderId)
+        .order('created_at', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allContacts = allContacts.concat(data);
+        offset += PAGE_SIZE;
+        if (data.length < PAGE_SIZE) {
+          keepFetching = false;
+        }
+      } else {
+        keepFetching = false;
+      }
+    }
+
+    return allContacts;
+  }
+
+  async exportReminderReportExcel(reminderId: string, organizationId: string): Promise<{ buffer: Buffer; fileName: string }> {
+    const reminder = await this.getReminder(reminderId, organizationId);
+    if (!reminder) throw new Error('Recordatorio no encontrado');
+
+    const contacts = await this.getAllReminderContacts(reminderId, organizationId);
+
+    // Extraer todas las variables únicas encontradas en los contactos
+    const variableKeysSet = new Set<string>();
+    contacts.forEach((c) => {
+      if (c.variables && typeof c.variables === 'object') {
+        Object.keys(c.variables).forEach((k) => variableKeysSet.add(k));
+      }
+    });
+    const variableKeys = Array.from(variableKeysSet);
+
+    // Mapeo de estados legibles
+    const statusLabels: Record<string, string> = {
+      sent: 'ENTREGADO / ENVIADO',
+      failed: 'FALLIDO / NO ENTREGADO',
+      pending: 'PENDIENTE',
+      skipped: 'OMITIDO',
+    };
+
+    // Encabezados de la tabla de detalle
+    const headers = [
+      '#',
+      'Teléfono',
+      'Estado de Entrega',
+      'Fecha y Hora de Envío',
+      'Mensaje Enviado',
+      'Motivo de Error / Detalle',
+      ...variableKeys.map((k) => `Var: ${k}`),
+    ];
+
+    // Filas de detalle
+    const dataRows = contacts.map((c, index) => {
+      const renderedMsg = renderTemplate(reminder.message_template, c.variables || {});
+      const sentTimeStr = c.sent_at ? new Date(c.sent_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—';
+      const statusLabel = statusLabels[c.status] || (c.status ? c.status.toUpperCase() : 'PENDIENTE');
+
+      const varValues = variableKeys.map((k) => c.variables?.[k] ?? '');
+
+      return [
+        index + 1,
+        c.phone || '',
+        statusLabel,
+        sentTimeStr,
+        renderedMsg,
+        c.error_message || (c.status === 'sent' ? 'Sin errores' : '—'),
+        ...varValues,
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    // Hoja 1: Detalle de Contactos
+    const wsDetailData = [headers, ...dataRows];
+    const wsDetail = XLSX.utils.aoa_to_sheet(wsDetailData);
+
+    // Ancho de columnas
+    wsDetail['!cols'] = [
+      { wch: 6 },   // #
+      { wch: 16 },  // Teléfono
+      { wch: 24 },  // Estado
+      { wch: 22 },  // Fecha Envío
+      { wch: 60 },  // Mensaje
+      { wch: 35 },  // Error
+      ...variableKeys.map((k) => ({ wch: Math.max(k.length + 8, 16) })),
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalle de Envíos');
+
+    // Hoja 2: Resumen Ejecutivo
+    const total = contacts.length || reminder.total || 0;
+    const sent = contacts.filter((c) => c.status === 'sent').length;
+    const failed = contacts.filter((c) => c.status === 'failed').length;
+    const pending = contacts.filter((c) => c.status === 'pending').length;
+    const successRate = total > 0 ? `${Math.round((sent / total) * 100)}%` : '0%';
+
+    const scheduleLabels: Record<string, string> = {
+      now: 'Inmediato',
+      once: 'Una vez',
+      recurring: 'Recurrente',
+    };
+
+    const summaryData = [
+      ['REPORTE EJECUTIVO DE RECORDATORIO'],
+      [''],
+      ['Propiedad', 'Valor'],
+      ['Nombre del Recordatorio', reminder.name],
+      ['ID Recordatorio', reminder.id],
+      ['Estado Actual', reminder.status?.toUpperCase()],
+      ['Tipo de Programación', scheduleLabels[reminder.schedule_type] || reminder.schedule_type],
+      ['Total de Contactos', total],
+      ['Mensajes Entregados con Éxito', sent],
+      ['Mensajes Fallidos / No Entregados', failed],
+      ['Mensajes Pendientes', pending],
+      ['Tasa de Efectividad / Entrega', successRate],
+      ['Fecha de Creación', reminder.created_at ? new Date(reminder.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—'],
+      ['Último Envío Realizado', reminder.last_sent_at ? new Date(reminder.last_sent_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—'],
+      ['Próxima Ejecución Programada', reminder.next_run_at ? new Date(reminder.next_run_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—'],
+      ['Plantilla Meta / Mensaje Base', reminder.meta_template_name || 'Personalizado'],
+      ['Texto Base del Mensaje', reminder.message_template],
+      [''],
+      ['Generado el', new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })],
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    wsSummary['!cols'] = [{ wch: 32 }, { wch: 70 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen Ejecutivo');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const cleanName = (reminder.name || 'recordatorio')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .substring(0, 30);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `reporte_recordatorio_${cleanName}_${dateStr}.xlsx`;
+
+    return { buffer, fileName };
+  }
+
+  async exportGeneralRemindersExcel(organizationId: string): Promise<{ buffer: Buffer; fileName: string }> {
+    const reminders = await this.listReminders(organizationId);
+
+    const scheduleLabels: Record<string, string> = {
+      now: 'Inmediato',
+      once: 'Una vez',
+      recurring: 'Recurrente',
+    };
+
+    const statusLabels: Record<string, string> = {
+      draft: 'Borrador',
+      scheduled: 'Programado',
+      sending: 'Enviando',
+      paused: 'Pausado',
+      completed: 'Completado',
+      cancelled: 'Cancelado',
+      failed: 'Fallido',
+    };
+
+    const headers = [
+      '#',
+      'Nombre del Recordatorio',
+      'Tipo de Envío',
+      'Estado',
+      'Total Contactos',
+      'Entregados con Éxito',
+      'Fallidos / No Entregados',
+      'Pendientes',
+      '% Efectividad',
+      'Fecha Creación',
+      'Último Envío',
+      'Próxima Ejecución',
+    ];
+
+    let totalContactsAll = 0;
+    let totalSentAll = 0;
+    let totalFailedAll = 0;
+
+    const rows = reminders.map((r, i) => {
+      const pending = Math.max(0, (r.total || 0) - (r.sent || 0) - (r.failed || 0));
+      const rate = r.total > 0 ? `${Math.round(((r.sent || 0) / r.total) * 100)}%` : '0%';
+
+      totalContactsAll += (r.total || 0);
+      totalSentAll += (r.sent || 0);
+      totalFailedAll += (r.failed || 0);
+
+      return [
+        i + 1,
+        r.name,
+        scheduleLabels[r.schedule_type] || r.schedule_type,
+        statusLabels[r.status] || r.status,
+        r.total || 0,
+        r.sent || 0,
+        r.failed || 0,
+        pending,
+        rate,
+        r.created_at ? new Date(r.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—',
+        r.last_sent_at ? new Date(r.last_sent_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—',
+        r.next_run_at ? new Date(r.next_run_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—',
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+      { wch: 6 },   // #
+      { wch: 30 },  // Nombre
+      { wch: 15 },  // Tipo
+      { wch: 16 },  // Estado
+      { wch: 16 },  // Total
+      { wch: 20 },  // Enviados
+      { wch: 22 },  // Fallidos
+      { wch: 14 },  // Pendientes
+      { wch: 14 },  // Efectividad
+      { wch: 20 },  // Creación
+      { wch: 20 },  // Último envío
+      { wch: 20 },  // Próxima ejecución
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Lista de Recordatorios');
+
+    // Hoja Resumen Consolidado
+    const generalRate = totalContactsAll > 0 ? `${Math.round((totalSentAll / totalContactsAll) * 100)}%` : '0%';
+    const summaryData = [
+      ['REPORTE CONSOLIDADO GENERAL DE RECORDATORIOS'],
+      [''],
+      ['Métrica', 'Total'],
+      ['Total de Campañas / Recordatorios', reminders.length],
+      ['Total de Contactos Gestionados', totalContactsAll],
+      ['Total Mensajes Entregados con Éxito', totalSentAll],
+      ['Total Mensajes Fallidos', totalFailedAll],
+      ['Tasa Global de Entrega / Éxito', generalRate],
+      [''],
+      ['Fecha de Generación', new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })],
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    wsSummary['!cols'] = [{ wch: 35 }, { wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen General');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `reporte_general_recordatorios_${dateStr}.xlsx`;
+
+    return { buffer, fileName };
   }
 
   async getReminderLogs(reminderId: string, organizationId: string) {
@@ -500,16 +794,8 @@ export class RemindersService {
         console.log(`[Reminders] Plantilla "${reminder.meta_template_name}" lang=${tplLang} formato=${tplUseNamedParams ? 'nombrado' : 'posicional'}`);
       }
 
-      // Batching de escrituras
-      const BATCH_SIZE = 50;
-      const updatesBatch: any[] = [];
-      const flushUpdates = async () => {
-        if (updatesBatch.length === 0) return;
-        const rows = updatesBatch.splice(0, updatesBatch.length);
-        const { error } = await supabase.from('reminder_contacts').upsert(rows, { onConflict: 'id' });
-        if (error) console.error('[Reminders] Error updating contacts:', error);
-        await updateProgress(reminder.id);
-      };
+      let currentSent = await countContacts(reminder.id, 'sent');
+      let currentFailed = await countContacts(reminder.id, 'failed');
 
       for (const contact of contacts || []) {
         if (state.cancelled) return;
@@ -555,31 +841,47 @@ export class RemindersService {
           } else {
             await adapter.sendTextMessage(phone, text);
           }
-          updatesBatch.push({
-            ...contact,
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            error_message: null,
-          });
+
+          currentSent++;
+          await supabase
+            .from('reminder_contacts')
+            .update({
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+              error_message: null,
+            })
+            .eq('id', contact.id);
+
         } catch (err: any) {
           const metaError = err?.response?.data?.error || err?.response?.data;
           const errorMsg = metaError
             ? `Meta API ${metaError.code || ''}: ${metaError.message || JSON.stringify(metaError)}`
             : String(err?.message || err);
           console.error(`[Reminders] Send FAILED for ${contact.phone}: ${errorMsg}`);
-          updatesBatch.push({
-            ...contact,
-            status: 'failed',
-            error_message: errorMsg,
-          });
+
+          currentFailed++;
+          await supabase
+            .from('reminder_contacts')
+            .update({
+              status: 'failed',
+              sent_at: new Date().toISOString(),
+              error_message: errorMsg,
+            })
+            .eq('id', contact.id);
         }
 
-        if (updatesBatch.length >= BATCH_SIZE) {
-          await flushUpdates();
-        }
+        // Actualizar progreso en tiempo real en la tabla principal
+        await supabase
+          .from('reminders')
+          .update({
+            sent: currentSent,
+            failed: currentFailed,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', reminder.id);
 
         // Log progress visually
-        const processed = (contact as any)._index !== undefined ? (contact as any)._index + 1 : ((contacts || []).indexOf(contact) + 1);
+        const processed = currentSent + currentFailed;
         const total = reminder.total;
         const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
         const filled = Math.round(pct / 10);
@@ -588,8 +890,6 @@ export class RemindersService {
 
         await sleep(delayMs);
       }
-
-      await flushUpdates();
       const [sentCount, failedCount] = await Promise.all([
         countContacts(reminder.id, 'sent'),
         countContacts(reminder.id, 'failed'),
