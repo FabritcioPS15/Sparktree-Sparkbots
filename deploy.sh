@@ -54,7 +54,7 @@ else
     cd /opt/sparktree
 fi
 
-# ─── 5. Crear archivo .env ───────────────────────────────────
+# ─── 5. Crear / Actualizar archivo .env ──────────────────────
 echo ""
 echo "⚙️  [5/7] Configurando variables de entorno..."
 if [ ! -f "/opt/sparktree/.env" ]; then
@@ -67,6 +67,9 @@ if [ ! -f "/opt/sparktree/.env" ]; then
     read -r
 fi
 
+# Corregir automáticamente VITE_API_URL en .env si tiene el placeholder o si está mal configurado
+sed -i 's|VITE_API_URL=.*|VITE_API_URL=/api|g' /opt/sparktree/.env || true
+
 # ─── 6. Crear carpeta de certificados SSL ────────────────────
 echo "🔐 [6/7] Preparando carpeta SSL..."
 mkdir -p /opt/sparktree/ssl
@@ -78,6 +81,7 @@ echo "      - key.pem   (Cloudflare Origin Private Key)"
 echo ""
 echo "🚀 [7/7] Construyendo y levantando los servicios..."
 cd /opt/sparktree
+docker compose -f docker-compose.prod.yml build --no-cache frontend
 docker compose -f docker-compose.prod.yml up -d --build
 
 echo ""
