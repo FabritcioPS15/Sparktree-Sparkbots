@@ -27,6 +27,16 @@ else
     echo "✅ Docker ya estaba instalado"
 fi
 
+# ─── 2b. Configurar Firewall (UFW) ──────────────────────────
+echo "🛡️ Configurando Firewall (UFW)..."
+if command -v ufw &> /dev/null; then
+    ufw allow 22/tcp   # SSH
+    ufw allow 80/tcp   # HTTP Web
+    ufw allow 443/tcp  # HTTPS Web
+    ufw --force enable || true
+    echo "✅ Firewall UFW configurado (puertos 22, 80, 443 abiertos)"
+fi
+
 # ─── 3. Instalar Git ─────────────────────────────────────────
 echo "📂 [3/7] Instalando Git..."
 apt-get install -y -qq git
