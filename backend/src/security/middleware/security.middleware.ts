@@ -10,11 +10,18 @@ const rateLimiter = new RateLimiterService();
 
 /**
  * Rate limiting middleware
+ *
+ * `scope` keeps each limiter in its own bucket. Without it, the global, api
+ * and auth limiters share one counter per IP and a page load full of API calls
+ * burns the auth budget before the user ever submits the login form.
  */
-export const rateLimit = (windowMs: number = 60000, maxRequests: number = 100) => {
+export const rateLimit = (scope: string, windowMs: number = 60000, maxRequests: number = 100) => {
   return (req: Request, res: Response, next: NextFunction) => {
+    // Requires `app.set('trust proxy', 1)`, otherwise req.ip is the reverse
+    // proxy's container IP and every user shares a single bucket.
     const identifier = req.ip || req.socket.remoteAddress || 'unknown';
     const result = rateLimiter.checkLimit(identifier, {
+      scope,
       windowMs,
       maxRequests,
     });
@@ -24,11 +31,14 @@ export const rateLimit = (windowMs: number = 60000, maxRequests: number = 100) =
     res.setHeader('X-RateLimit-Reset', result.resetTime.toISOString());
 
     if (!result.success) {
+      const retryAfter = Math.max(1, Math.ceil((result.resetTime.getTime() - Date.now()) / 1000));
+      res.setHeader('Retry-After', retryAfter.toString());
       return res.status(429).json({
         error: 'Too many requests',
         limit: result.limit,
         remaining: result.remaining,
         resetAt: result.resetTime,
+        retryAfter,
       });
     }
 
@@ -37,19 +47,21 @@ export const rateLimit = (windowMs: number = 60000, maxRequests: number = 100) =
 };
 
 /**
- * Strict rate limiting for authentication endpoints
+ * Strict rate limiting for authentication endpoints.
+ * 10 attempts per 15 minutes: enough for a user who mistypes a couple of
+ * times, low enough to throttle credential stuffing.
  */
-export const authRateLimit = rateLimit(15 * 60 * 1000, process.env.NODE_ENV === 'development' ? 100 : 5); // 100 requests in dev, 5 in prod per 15 minutes
+export const authRateLimit = rateLimit('auth', 15 * 60 * 1000, 10);
 
 /**
  * API rate limiting
  */
-export const apiRateLimit = rateLimit(60 * 1000, 100); // 100 requests per minute
+export const apiRateLimit = rateLimit('api', 60 * 1000, 300); // 300 requests per minute per IP
 
 /**
- * Global rate limiting
+ * Global rate limiting (webhooks and other public routes)
  */
-export const globalRateLimit = rateLimit(60 * 1000, 1000); // 1000 requests per minute
+export const globalRateLimit = rateLimit('global', 60 * 1000, 2000); // 2000 requests per minute per IP
 
 /**
  * Security headers middleware

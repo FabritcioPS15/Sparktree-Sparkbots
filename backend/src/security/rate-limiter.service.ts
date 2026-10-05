@@ -9,33 +9,49 @@ export class RateLimiterService {
   private requests: Map<string, { count: number; resetTime: Date }> = new Map();
 
   /**
+   * Builds the storage key for a bucket. The scope is part of the key so that
+   * different limiters (global, api, auth) never share counters for the same
+   * identifier.
+   */
+  private buildKey(identifier: string, scope: string): string {
+    return `${scope}:${identifier}`;
+  }
+
+  /**
    * Check if request is allowed
    */
   checkLimit(identifier: string, config: RateLimitConfig): RateLimitResult {
     const now = new Date();
-    const windowStart = new Date(now.getTime() - config.windowMs);
-    
-    let requestInfo = this.requests.get(identifier);
-    
+    const key = this.buildKey(identifier, config.scope);
+
+    let requestInfo = this.requests.get(key);
+
     // Clean up expired entries
-    if (requestInfo && requestInfo.resetTime < now) {
-      this.requests.delete(identifier);
+    if (requestInfo && requestInfo.resetTime <= now) {
+      this.requests.delete(key);
       requestInfo = undefined;
     }
-    
+
     if (!requestInfo) {
       requestInfo = {
         count: 0,
         resetTime: new Date(now.getTime() + config.windowMs),
       };
-      this.requests.set(identifier, requestInfo);
+      this.requests.set(key, requestInfo);
     }
-    
+
     requestInfo.count++;
-    
+
     const remaining = Math.max(0, config.maxRequests - requestInfo.count);
-    const success = remaining > 0;
-    
+    const success = remaining >= 0 && requestInfo.count <= config.maxRequests;
+
+    // Sliding window: push the reset forward while the client keeps the
+    // bucket below the limit, so throttling is spread out instead of piling
+    // up at the start of every window.
+    if (success) {
+      requestInfo.resetTime = new Date(now.getTime() + config.windowMs);
+    }
+
     return {
       success,
       limit: config.maxRequests,
@@ -45,17 +61,17 @@ export class RateLimiterService {
   }
 
   /**
-   * Reset rate limit for an identifier
+   * Reset rate limit for an identifier within a scope
    */
-  resetLimit(identifier: string): void {
-    this.requests.delete(identifier);
+  resetLimit(identifier: string, scope = 'default'): void {
+    this.requests.delete(this.buildKey(identifier, scope));
   }
 
   /**
-   * Get current usage for an identifier
+   * Get current usage for an identifier within a scope
    */
-  getUsage(identifier: string): { count: number; resetTime: Date } | undefined {
-    return this.requests.get(identifier);
+  getUsage(identifier: string, scope = 'default'): { count: number; resetTime: Date } | undefined {
+    return this.requests.get(this.buildKey(identifier, scope));
   }
 
   /**

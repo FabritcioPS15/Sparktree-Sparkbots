@@ -30,6 +30,42 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// A 401 means the stored session no longer resolves to a valid user (expired
+// JWT_SECRET, user deleted, or a session carried over from another
+// environment). Drop it and send the user to /login instead of letting every
+// request fail silently.
+let redirectingToLogin = false;
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+
+    if (status === 401 && !redirectingToLogin) {
+      const onLoginPage = window.location.pathname === '/login';
+      const isAuthRequest = error?.config?.url?.includes('/auth/login');
+
+      // Do not clear the session while on the login form: that request is the
+      // one trying to create a session in the first place.
+      if (!isAuthRequest && !onLoginPage) {
+        localStorage.removeItem('sparkbot_session');
+        redirectingToLogin = true;
+        console.warn('Session invalid or expired, redirecting to login');
+        window.location.href = '/login';
+      }
+    }
+
+    if (status === 429) {
+      const retryAfter = error?.response?.data?.retryAfter;
+      console.warn(
+        `Rate limit exceeded.${retryAfter ? ` Retry in ${retryAfter}s.` : ''}`
+      );
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const getUsers = async () => {
   try {
     const response = await api.get('/users');

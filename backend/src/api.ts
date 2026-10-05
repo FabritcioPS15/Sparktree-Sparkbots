@@ -52,6 +52,12 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+// Trust the first proxy hop (the nginx container) so that req.ip resolves to
+// the real client address taken from X-Forwarded-For. Without this, every
+// request appears to come from the nginx container and all users share one
+// rate-limit bucket and one IP in the logs.
+app.set('trust proxy', 1);
+
 // WebSocket setup for real-time connection status (RF-02)
 // const io = new Server(httpServer, {
 //   cors: {
