@@ -34,10 +34,11 @@ apt-get install -y -qq git
 # ─── 4. Clonar el repositorio ────────────────────────────────
 echo "📥 [4/7] Clonando repositorio..."
 if [ -d "/opt/sparktree" ]; then
-    echo "   Repositorio ya existe, haciendo pull..."
+    echo "   Repositorio ya existe, actualizando a la última versión de multiempresa..."
     cd /opt/sparktree
+    git fetch origin multiempresa
     git checkout multiempresa
-    git pull origin multiempresa
+    git reset --hard origin/multiempresa
 else
     git clone -b multiempresa https://github.com/FabritcioPS15/Sparktree-Sparkbots.git /opt/sparktree
     cd /opt/sparktree
