@@ -451,16 +451,18 @@ httpServer.listen(PORT, async () => {
   console.log(`🌐 Platform Connections API: http://localhost:${PORT}/api/platform/connections`);
   console.log(`🔗 Webhooks: http://localhost:${PORT}/api/webhooks`);
 
-  // Start ngrok forwarding for webhooks
-  try {
-    const ngrok = require("@ngrok/ngrok");
-    const forwarder = await ngrok.forward({
-      addr: PORT,
-      authtoken_from_env: true,
-    });
-    console.log(`🌐 Ngrok available at: ${forwarder.url()}`);
-  } catch (error) {
-    console.error("Failed to start ngrok:", error);
+  // Start ngrok forwarding for webhooks (dev only)
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const ngrok = require("@ngrok/ngrok");
+      const forwarder = await ngrok.forward({
+        addr: PORT,
+        authtoken_from_env: true,
+      });
+      console.log(`🌐 Ngrok available at: ${forwarder.url()}`);
+    } catch (error) {
+      console.error("Failed to start ngrok:", error);
+    }
   }
 });
 

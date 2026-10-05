@@ -1,35 +1,36 @@
-# Dockerfile for Sparktree SaaS Backend
-# Implements containerized deployment with directory isolation (RNF-04, RNF-05)
+# Dockerfile for Sparktree SaaS Backend — Production
+FROM node:20-alpine AS builder
 
-FROM node:18-alpine
-
-# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install all deps (including devDeps for TypeScript build)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build TypeScript
 RUN npm run build
 
-# Create ephemeral directory for temporary auth state (RNF-05)
-# This directory is not mounted as a volume, ensuring containers are stateless
-RUN mkdir -p /tmp/auth_state && \
-    chmod 777 /tmp/auth_state
+# ─── Production image ───────────────────────────────────────────────────────
+FROM node:20-alpine
 
-# Set environment variables for ephemeral auth storage
-ENV AUTH_STATE_PATH=/tmp/auth_state
+WORKDIR /app
 
-# Expose port
+# Install only production deps
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy compiled JS from builder
+COPY --from=builder /app/dist ./dist
+
+# Persistent storage for WhatsApp sessions (mount a Docker volume here)
+RUN mkdir -p /app/whatsapp_sessions && chmod 777 /app/whatsapp_sessions
+ENV AUTH_STATE_PATH=/app/whatsapp_sessions
+
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application
-CMD ["npm", "start"]
+CMD ["node", "dist/src/api.js"]
