@@ -251,8 +251,8 @@ function App() {
     <AppLocalizationProvider>
     <ThemeProvider>
       <NotificationsProvider>
-        <NotificationProvider>
           <AuthProvider>
+            <NotificationProvider>
             <ConnectionsProvider>
               <WhatsAppProvider>
                 <CustomizationProvider>
@@ -263,8 +263,8 @@ function App() {
                 </CustomizationProvider>
               </WhatsAppProvider>
             </ConnectionsProvider>
+            </NotificationProvider>
           </AuthProvider>
-        </NotificationProvider>
       </NotificationsProvider>
     </ThemeProvider>
     </AppLocalizationProvider>

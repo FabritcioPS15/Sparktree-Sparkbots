@@ -26,6 +26,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { Bell, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { getConversations, getLeads } from '../services/api';
 import { useNotifications as useReapopNotifications } from 'reapop';
+import { useAuth } from './AuthContext';
 
 // =============================================================================
 // TIPOS E INTERFACES
@@ -165,7 +166,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
    * - Filtra por clientes potenciales
    * - Genera notificaciones automáticamente
    */
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (!user) return; // No pollear si no hay sesión activa
     let lastLatestMessageTime: string | null = null;
     const handoffAlerted = new Set<string>();
 
@@ -271,7 +275,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       if (interval) clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, []); // Sin dependencias para ejecutar solo una vez
+  }, [user]); // Reiniciar cuando el usuario cambia (login/logout)
 
   return (
     <NotificationContext.Provider value={{
