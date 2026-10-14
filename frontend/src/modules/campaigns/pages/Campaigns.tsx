@@ -217,10 +217,6 @@ export const Campaigns = () => {
         title="Campañas de Mensajes"
         description="Sube un Excel con contactos y envía mensajes personalizados por WhatsApp automáticamente"
         icon={Megaphone}
-        meta={[
-          { label: 'Campañas', value: campaigns.length, icon: Megaphone, color: 'accent' },
-          { label: 'Activas', value: campaigns.filter((c) => c.status === 'sending' || c.status === 'paused').length, icon: Send, color: 'emerald' },
-        ]}
         action={
           <div className="flex items-center gap-3">
             <CountBadge count={campaigns.length} />

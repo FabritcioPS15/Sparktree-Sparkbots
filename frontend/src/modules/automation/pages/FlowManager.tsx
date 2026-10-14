@@ -293,11 +293,6 @@ export const FlowManager = () => {
         highlight="Bots AI"
         description="Configura el comportamiento y las respuestas automatizadas de tu bot."
         icon={Bot}
-        meta={[
-          { label: 'Flujos', value: totalFlows, icon: LayoutGrid, color: 'accent' },
-          { label: 'Activos', value: activeFlows, icon: Activity, color: 'emerald' },
-          { label: 'Inactivos', value: inactiveFlows, icon: Activity, color: 'amber' },
-        ]}
         action={
           <div className="flex items-center gap-3">
             <CountBadge count={flows.length} />

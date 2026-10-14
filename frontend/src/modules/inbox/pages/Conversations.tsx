@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getConversations, getConversationMessages, deleteConversation, deleteUser, getCatalogs, getTeamUsers, assignAgentToConversation } from '../../../services/api';
 import api from '../../../services/api';
 import {
-  Check, CheckCheck, Send, Search, Filter, Users, MoreVertical, Smile, Paperclip, Mic, Star, MessageCircle, Trash2, ChevronLeft, ChevronRight, ChevronDown, Store, Package, X, Bell, BellOff, Shield, Plus, Cloud, QrCode, Bot, User
+  Check, CheckCheck, Send, Search, Filter, Users, MoreVertical, Smile, Paperclip, Mic, Star, MessageCircle, Trash2, ChevronLeft, ChevronRight, ChevronDown, Store, Package, X, Bell, BellOff, Shield, Plus, Cloud, QrCode, Bot, User, Camera, Video, FileText, Zap, Pencil, Palette
 } from 'lucide-react';
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger, FaTiktok } from 'react-icons/fa';
 import { PageLoader } from '../../../components/layout/PageLoader';
@@ -12,12 +13,238 @@ import { Loader } from '../../../components/ui/Loader';
 import { AnimatedButton } from '../../../components/ui/AnimatedButton';
 import { Modal } from '../../../components/ui/Modal';
 import { useNotifications } from '../../../contexts/NotificationContext';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useCustomization } from '../../../contexts/CustomizationContext';
+
+const normalizeChannel = (channel?: string) => {
+  const channelMapping: Record<string, string> = {
+    'wa': 'whatsapp',
+    'wsp': 'whatsapp',
+    'ig': 'instagram',
+    'tg': 'telegram',
+    'facebook_messenger': 'messenger',
+    'fb': 'messenger',
+    'facebook': 'messenger',
+  };
+  if (!channel) return 'whatsapp';
+  const normalized = String(channel).toLowerCase().trim();
+  return channelMapping[normalized] || normalized;
+};
+
+const QUICK_REPLIES_STORAGE_KEY = 'sparkbot_quick_replies';
+const DEFAULT_QUICK_REPLIES = ['Gracias', 'Perfecto', 'Enviado', 'Confirmado', 'Te llamo'];
+
+const loadQuickReplies = (): string[] => {
+  try {
+    const raw = localStorage.getItem(QUICK_REPLIES_STORAGE_KEY);
+    if (!raw) return DEFAULT_QUICK_REPLIES;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((r) => typeof r === 'string')) return parsed;
+    return DEFAULT_QUICK_REPLIES;
+  } catch {
+    return DEFAULT_QUICK_REPLIES;
+  }
+};
+
+const CHAT_THEME_STORAGE_KEY = 'sparkbot_chat_theme';
+const CHAT_SOLID_COLOR_STORAGE_KEY = 'sparkbot_chat_solid_color';
+const CHAT_THEME_COLORS_STORAGE_KEY = 'sparkbot_chat_theme_colors';
+
+type ChatThemeConfig = {
+  bg: string;
+  color?: string;
+  build?: (color: string) => string;
+  opacity?: number;
+  blend?: CSSProperties['mixBlendMode'];
+};
+type ChatTheme = {
+  id: string;
+  label: string;
+  solid?: boolean;
+  multiTone?: boolean;
+  light: ChatThemeConfig;
+  dark: ChatThemeConfig;
+};
+type ChatColorOverride = { bg?: string; color?: string };
+
+const rgbTripletToHex = (triplet: string): string => {
+  const [r, g, b] = triplet.trim().split(/\s+/).map(Number);
+  const h = (n: number) => (isNaN(n) ? '00' : Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0'));
+  return `#${h(r)}${h(g)}${h(b)}`;
+};
+
+const svgDataUri = (svg: string) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+
+const hexPointsStr = (cx: number, cy: number, r: number) => {
+  const pts: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`);
+  }
+  return pts.join(' ');
+};
+
+const buildHexPattern = (fill: string) => {
+  const R = 14;
+  const r = 12.4;
+  const w = Math.sqrt(3) * R;
+  const h = 3 * R;
+  let body = '';
+  for (let n = -1; n <= 2; n++) {
+    const cy = R + 1.5 * R * n;
+    const off = n % 2 === 0 ? w / 2 : 0;
+    for (let m = -1; m <= 1; m++) {
+      body += `<polygon points='${hexPointsStr(off + m * w, cy, r)}'/>`;
+    }
+  }
+  return svgDataUri(`<svg xmlns='http://www.w3.org/2000/svg' width='${w.toFixed(2)}' height='${h.toFixed(2)}' viewBox='0 0 ${w.toFixed(2)} ${h.toFixed(2)}'><g fill='${fill}'>${body}</g></svg>`);
+};
+
+const buildDotsPattern = (color: string) => svgDataUri(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='5' cy='5' r='1.8' fill='${color}'/><circle cx='17' cy='17' r='1.8' fill='${color}'/></svg>`
+);
+
+const buildWavesPattern = (color: string) => svgDataUri(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'><path d='M0 15 Q10 5 20 15 T40 15' fill='none' stroke='${color}' stroke-width='2'/></svg>`
+);
+
+const buildDiagonalPattern = (color: string) => svgDataUri(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><path d='M-4 4 L4 -4 M0 16 L16 0 M12 20 L20 12' stroke='${color}' stroke-width='1.4' fill='none'/></svg>`
+);
+
+const buildGridPattern = (color: string) => svgDataUri(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><path d='M28 0 H0 V28' fill='none' stroke='${color}' stroke-width='1.4'/></svg>`
+);
+
+const MAZE_UNIT_PATHS = [
+  'M0,0 L120,120 M120,0 L0,120',
+  'M30,30 L60,0 L90,30 L60,60 Z',
+  'M30,90 L60,60 L90,90 L60,120 Z',
+  'M0,60 L30,30 L30,90 Z',
+  'M120,60 L90,30 L90,90 Z',
+  'M0,30 L30,0',
+  'M120,30 L90,0',
+  'M0,90 L30,120',
+  'M120,90 L90,120',
+];
+
+const MAZE_UNIT = 120;
+const MAZE_K = 2;
+const MAZE_TRANSFORMS: string[] = (() => {
+  const arr: string[] = [];
+  for (let i = 0; i < MAZE_K; i++) {
+    for (let j = 0; j < MAZE_K; j++) {
+      const rot = Math.floor(Math.random() * 4) * 90;
+      const flip = Math.random() > 0.5 ? `translate(${MAZE_UNIT},0) scale(-1,1) ` : '';
+      arr.push(`translate(${i * MAZE_UNIT},${j * MAZE_UNIT}) ${flip}rotate(${rot} ${MAZE_UNIT / 2} ${MAZE_UNIT / 2})`);
+    }
+  }
+  return arr;
+})();
+
+const buildMazePattern = (color: string) => {
+  const tile = MAZE_UNIT * MAZE_K;
+  const groups = MAZE_TRANSFORMS
+    .map(t => `<g transform='${t}' fill='none' stroke='${color}' stroke-width='10' stroke-linecap='square' stroke-linejoin='miter'>${MAZE_UNIT_PATHS.map(d => `<path d='${d}'/>`).join('')}</g>`)
+    .join('');
+  return svgDataUri(`<svg xmlns='http://www.w3.org/2000/svg' width='${tile}' height='${tile}' viewBox='0 0 ${tile} ${tile}'>${groups}</svg>`);
+};
+
+const CUBE_NOISE: number[][] = Array.from({ length: 4 }, () =>
+  Array.from({ length: 4 }, () => Math.floor(Math.random() * 13) - 6)
+);
+
+const buildCubePattern = (top: number[], left: number[], right: number[]) => {
+  const R = 45;
+  const W = (R * Math.sqrt(3)) / 2;
+  const H = R / 2;
+  const N = 4;
+  const M = 4;
+  const tileW = 2 * W * N;
+  const tileH = 1.5 * R * M;
+  const mod = (v: number, m: number) => ((v % m) + m) % m;
+  const face = (pts: number[][], base: number[], n: number) => {
+    const c = `rgb(${base[0] + n},${base[1] + n},${base[2] + n})`;
+    return `<polygon points='${pts.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ')}' fill='${c}' stroke='${c}' stroke-width='0.5'/>`;
+  };
+  let body = '';
+  for (let row = -2; row <= M + 1; row++) {
+    const y = row * 1.5 * R;
+    const off = row % 2 === 0 ? 0 : W;
+    for (let col = -2; col <= N + 1; col++) {
+      const x = col * 2 * W + off;
+      const n = CUBE_NOISE[mod(row, M)][mod(col, N)];
+      body += face([[x, y], [x - W, y - H], [x, y - R], [x + W, y - H]], top, n);
+      body += face([[x, y], [x - W, y - H], [x - W, y + H], [x, y + R]], left, n);
+      body += face([[x, y], [x + W, y - H], [x + W, y + H], [x, y + R]], right, n);
+    }
+  }
+  return svgDataUri(`<svg xmlns='http://www.w3.org/2000/svg' width='${tileW.toFixed(2)}' height='${tileH.toFixed(2)}' viewBox='0 0 ${tileW.toFixed(2)} ${tileH.toFixed(2)}'>${body}</svg>`);
+};
+
+const CUBE_PATTERN_LIGHT = buildCubePattern([248, 248, 248], [235, 235, 235], [220, 220, 220]);
+const CUBE_PATTERN_DARK = buildCubePattern([34, 42, 49], [26, 33, 39], [19, 25, 30]);
+
+const CHAT_THEMES: ChatTheme[] = [
+  {
+    id: 'hex',
+    label: 'Hexágonos',
+    light: { bg: '#e7eaee', color: '#f8f9fb', build: buildHexPattern },
+    dark: { bg: '#0b141a', color: '#17262d', build: buildHexPattern },
+  },
+  {
+    id: 'dots',
+    label: 'Puntos',
+    light: { bg: '50', color: '300', build: buildDotsPattern },
+    dark: { bg: '950', color: '700', build: buildDotsPattern },
+  },
+  {
+    id: 'waves',
+    label: 'Ondas',
+    light: { bg: '50', color: '300', build: buildWavesPattern },
+    dark: { bg: '950', color: '700', build: buildWavesPattern },
+  },
+  {
+    id: 'diagonal',
+    label: 'Diagonal',
+    light: { bg: '50', color: '200', build: buildDiagonalPattern },
+    dark: { bg: '950', color: '800', build: buildDiagonalPattern },
+  },
+  {
+    id: 'grid',
+    label: 'Cuadrícula',
+    light: { bg: '50', color: '200', build: buildGridPattern },
+    dark: { bg: '950', color: '800', build: buildGridPattern },
+  },
+  {
+    id: 'maze',
+    label: 'Laberinto',
+    light: { bg: '#ffffff', color: '#ebdff7', build: buildMazePattern },
+    dark: { bg: '#0b141a', color: '#243040', build: buildMazePattern },
+  },
+  {
+    id: 'cubes',
+    label: 'Cubos 3D',
+    multiTone: true,
+    light: { bg: '#ffffff', build: () => CUBE_PATTERN_LIGHT },
+    dark: { bg: '#0b141a', build: () => CUBE_PATTERN_DARK },
+  },
+  {
+    id: 'solid',
+    label: 'Sólido',
+    solid: true,
+    light: { bg: '50' },
+    dark: { bg: '950' },
+  },
+];
 
 export const Conversations = () => {
   const { addNotification } = useNotifications();
+  const { theme } = useTheme();
+  const { accentRgb } = useCustomization();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [allConversations, setAllConversations] = useState<any[]>([]);
   const [selectedConv, setSelectedConv] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +254,7 @@ export const Conversations = () => {
   const [selectedConnectionId, setSelectedConnectionId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterChannel, setFilterChannel] = useState('all');
+  const [filterChannels, setFilterChannels] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
@@ -111,43 +338,22 @@ export const Conversations = () => {
     }
   };
 
-  const fetchConversationsList = async () => {
+  const fetchConversationsList = async (): Promise<boolean> => {
     try {
       const data = await getConversations();
       const conversationsArray = Array.isArray(data) ? data : [];
 
       const newHash = JSON.stringify(conversationsArray.map((c: any) => ({ id: c._id, last: c.lastMessageAt, unread: c.unreadCount })));
       if (newHash === lastConversationsHash.current && lastConversationsHash.current !== '') {
-        setLoading(false);
-        return;
+        return true;
       }
       lastConversationsHash.current = newHash;
 
-      let filtered = conversationsArray;
-      if (searchTerm) {
-        filtered = filtered.filter(conv => {
-          const realPhone = getRealPhoneNumber(conv.contactId);
-          return (conv.contactId?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (realPhone || '').includes(searchTerm);
-        });
-      }
-
-      if (filterStatus !== 'all') {
-        filtered = filtered.filter(conv => {
-          if (filterStatus === 'unread') return conv.unreadCount > 0;
-          if (filterStatus === 'groups') return conv.contactId?.isGroup === true;
-          return true;
-        });
-      }
-
-      if (filterChannel !== 'all') {
-        filtered = filtered.filter(conv => normalizeChannel(conv.channel) === filterChannel);
-      }
-
-      setConversations(filtered);
+      setAllConversations(conversationsArray);
+      return true;
     } catch (err) {
-      console.error('Failed to load conversations', err);
-      setConversations([]);
+      console.warn('Failed to load conversations (se reintentará con backoff)');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -301,6 +507,33 @@ export const Conversations = () => {
     return realPhone;
   };
 
+  const conversations = useMemo(() => {
+    let filtered = allConversations;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(conv => {
+        const realPhone = getRealPhoneNumber(conv.contactId);
+        return (conv.contactId?.name || '').toLowerCase().includes(term) ||
+          (realPhone || '').includes(term);
+      });
+    }
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(conv => {
+        if (filterStatus === 'unread') return (conv.unreadCount || 0) > 0;
+        if (filterStatus === 'groups') return Boolean(conv.contactId?.isGroup);
+        return true;
+      });
+    }
+
+    if (filterChannels.length > 0) {
+      filtered = filtered.filter(conv => filterChannels.includes(normalizeChannel(conv.channel)));
+    }
+
+    return filtered;
+  }, [allConversations, searchTerm, filterStatus, filterChannels]);
+
   useEffect(() => {
     if (messages.length > lastMessagesLength.current || isNearBottom()) {
       scrollToBottom();
@@ -318,10 +551,39 @@ export const Conversations = () => {
   const lastConversationsHash = useRef<string>('');
 
   useEffect(() => {
-    fetchConversationsList();
-    const interval = setInterval(fetchConversationsList, 8000);
-    return () => clearInterval(interval);
-  }, [searchTerm, filterStatus, filterChannel]);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let delay = 12000;
+    const BASE = 12000;
+    const MAX = 60000;
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (!document.hidden) {
+        const ok = await fetchConversationsList();
+        if (cancelled) return;
+        delay = ok ? BASE : Math.min(MAX, delay * 2);
+      }
+      if (!cancelled) timer = setTimeout(tick, delay);
+    };
+
+    tick();
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        if (timer) clearTimeout(timer);
+        delay = BASE;
+        tick();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     if (id && conversations.length > 0 && (!selectedConv || selectedConv._id !== id)) {
@@ -359,8 +621,17 @@ export const Conversations = () => {
   const lastMessagesHash = useRef<string>('');
 
   useEffect(() => {
-    if (selectedConv) {
-      const loadMessages = async () => {
+    if (!selectedConv) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let delay = 6000;
+    const BASE = 6000;
+    const MAX = 40000;
+
+    const loadMessages = async () => {
+      if (cancelled) return;
+      let ok = true;
+      if (!document.hidden) {
         try {
           const data = await getConversationMessages(selectedConv._id);
           const newHash = JSON.stringify(data.map((m: any) => ({ id: m._id, s: m.status })));
@@ -368,14 +639,31 @@ export const Conversations = () => {
             lastMessagesHash.current = newHash;
             setMessages(data);
           }
-        } catch (err) {
-          console.error('Failed to load messages', err);
+        } catch {
+          ok = false;
         }
-      };
-      loadMessages();
-      const interval = setInterval(loadMessages, 4000);
-      return () => clearInterval(interval);
-    }
+      }
+      if (cancelled) return;
+      delay = ok ? BASE : Math.min(MAX, delay * 2);
+      timer = setTimeout(loadMessages, delay);
+    };
+
+    loadMessages();
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        if (timer) clearTimeout(timer);
+        delay = BASE;
+        loadMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [selectedConv]);
 
   const fetchCatalogs = async () => {
@@ -563,6 +851,118 @@ export const Conversations = () => {
   const EMOJIS = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '😡', '😠', '🤬', '👍', '👎', '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘', '👌', '💪', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '🔥', '⭐', '✨', '💯', '🎉', '🎊', '🥳', '🎈', '🎁', '💡', '📌', '📍', '💀', '☠️', '👋', '🤚', '🖐️', '✋', '🖖', '🖕', '🤙', '💅'];
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const [quickReplies, setQuickReplies] = useState<string[]>(loadQuickReplies);
+  const [isQuickRepliesOpen, setIsQuickRepliesOpen] = useState(false);
+  const [newQuickReply, setNewQuickReply] = useState('');
+  const [editingQuickReplyIndex, setEditingQuickReplyIndex] = useState<number | null>(null);
+  const [editingQuickReplyValue, setEditingQuickReplyValue] = useState('');
+
+  const [chatThemeId, setChatThemeId] = useState<string>(() => {
+    const stored = localStorage.getItem(CHAT_THEME_STORAGE_KEY);
+    return stored && CHAT_THEMES.some(t => t.id === stored) ? stored : 'hex';
+  });
+  const [isChatThemeOpen, setIsChatThemeOpen] = useState(false);
+  const [solidChatColor, setSolidChatColor] = useState<string>(() => localStorage.getItem(CHAT_SOLID_COLOR_STORAGE_KEY) || '#efeae2');
+  const [themeColorOverrides, setThemeColorOverrides] = useState<Record<string, ChatColorOverride>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CHAT_THEME_COLORS_STORAGE_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_THEME_STORAGE_KEY, chatThemeId);
+    } catch {
+      // ignora cuota/almacenamiento no disponible
+    }
+  }, [chatThemeId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_SOLID_COLOR_STORAGE_KEY, solidChatColor);
+    } catch {
+      // ignora cuota/almacenamiento no disponible
+    }
+  }, [solidChatColor]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_THEME_COLORS_STORAGE_KEY, JSON.stringify(themeColorOverrides));
+    } catch {
+      // ignora cuota/almacenamiento no disponible
+    }
+  }, [themeColorOverrides]);
+
+  const shadeHex = (key: string) => rgbTripletToHex(accentRgb?.[key] || '120 120 120');
+  const resolveColor = (c: string) => (c.startsWith('#') ? c : shadeHex(c));
+
+  const getThemeColors = (t: ChatTheme, isDark: boolean): { bg: string; color?: string } => {
+    if (t.solid) return { bg: solidChatColor };
+    const cfg = isDark ? t.dark : t.light;
+    const ov = themeColorOverrides[t.id];
+    return {
+      bg: ov?.bg ?? resolveColor(cfg.bg),
+      color: cfg.build ? ov?.color ?? (cfg.color ? resolveColor(cfg.color) : '') : undefined,
+    };
+  };
+
+  const getThemeAppearance = (t: ChatTheme, isDark: boolean): { bg: string; image?: string; opacity: number; blend?: CSSProperties['mixBlendMode'] } => {
+    const colors = getThemeColors(t, isDark);
+    if (t.solid) return { bg: colors.bg, image: undefined, opacity: 1, blend: undefined };
+    const cfg = isDark ? t.dark : t.light;
+    const image = cfg.build ? cfg.build(colors.color || '') : undefined;
+    return { bg: colors.bg, image, opacity: cfg.opacity ?? 1, blend: cfg.blend };
+  };
+
+  const setThemeBg = (id: string, value: string) =>
+    setThemeColorOverrides(prev => ({ ...prev, [id]: { ...prev[id], bg: value } }));
+  const setThemePatternColor = (id: string, value: string) =>
+    setThemeColorOverrides(prev => ({ ...prev, [id]: { ...prev[id], color: value } }));
+  const resetThemeColors = (id: string) =>
+    setThemeColorOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+  const chatTheme = CHAT_THEMES.find(t => t.id === chatThemeId) || CHAT_THEMES[0];
+  const chatThemeMode = getThemeAppearance(chatTheme, theme === 'dark');
+  const chatThemeColors = getThemeColors(chatTheme, false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUICK_REPLIES_STORAGE_KEY, JSON.stringify(quickReplies));
+    } catch {
+      // ignora cuota/almacenamiento no disponible
+    }
+  }, [quickReplies]);
+
+  const addQuickReply = () => {
+    const value = newQuickReply.trim();
+    if (!value) return;
+    setQuickReplies(prev => [...prev, value]);
+    setNewQuickReply('');
+  };
+
+  const saveQuickReply = (index: number) => {
+    const value = editingQuickReplyValue.trim();
+    if (value) {
+      setQuickReplies(prev => prev.map((r, i) => (i === index ? value : r)));
+    }
+    setEditingQuickReplyIndex(null);
+    setEditingQuickReplyValue('');
+  };
+
+  const deleteQuickReply = (index: number) => {
+    setQuickReplies(prev => prev.filter((_, i) => i !== index));
+    if (editingQuickReplyIndex === index) {
+      setEditingQuickReplyIndex(null);
+      setEditingQuickReplyValue('');
+    }
+  };
 
   const handleEmojiSelect = (emoji: string) => {
     setMessageText(prev => prev + emoji);
@@ -772,6 +1172,18 @@ export const Conversations = () => {
     }
   };
 
+  const getConversationPreview = (content: any): { text: string; kind: 'text' | 'image' | 'video' | 'audio' | 'document' | 'empty' } => {
+    const media = getMessageMedia(content);
+    if (media) {
+      const labels: Record<string, string> = { image: 'Foto', video: 'Video', audio: 'Audio', document: 'Documento' };
+      const caption = parseMessage(content);
+      return { text: caption || labels[media.type] || 'Archivo', kind: media.type };
+    }
+    const text = parseMessage(content);
+    if (text) return { text, kind: 'text' };
+    return { text: '', kind: 'empty' };
+  };
+
   const parseButtons = (content: any): { id: string; text: string }[] => {
     if (!content) return [];
     try {
@@ -894,7 +1306,7 @@ export const Conversations = () => {
       if (contactId) {
         await deleteUser(contactId);
       }
-      setConversations(prev => prev.filter(c => c._id !== conversationId));
+      setAllConversations(prev => prev.filter(c => c._id !== conversationId));
       if (selectedConv?._id === conversationId) setSelectedConv(null);
     } catch (err) {
       console.error('Failed to delete', err);
@@ -950,7 +1362,7 @@ export const Conversations = () => {
       }
       addNotification({ type: 'success', title: 'Bot reactivado', message: 'El bot volverá a responder a este contacto.' });
       // Actualizar de inmediato el listado y el header (el bot queda "atendiendo" → amarillo)
-      setConversations(prev => prev.map(c =>
+      setAllConversations(prev => prev.map(c =>
         c._id === selectedConv._id
           ? { ...c, botState: 'main_menu', contactId: { ...(c.contactId || {}), bot_state: null, botState: null } }
           : c
@@ -977,7 +1389,7 @@ export const Conversations = () => {
         ? { id: agentId, name: getAgentName(selectedAgent) }
         : null;
       // Actualizar de inmediato el listado y el header
-      setConversations(prev => prev.map(c =>
+      setAllConversations(prev => prev.map(c =>
         c._id === selectedConv._id ? { ...c, assignedTo: agentId, assignedAgent } : c
       ));
       setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: agentId, assignedAgent } : prev);
@@ -995,7 +1407,7 @@ export const Conversations = () => {
     setAssignLoading(true);
     try {
       await api.post('/assignment/unassign', { conversationId: selectedConv._id });
-      setConversations(prev => prev.map(c =>
+      setAllConversations(prev => prev.map(c =>
         c._id === selectedConv._id ? { ...c, assignedTo: null, assignedAgent: null } : c
       ));
       setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: null, assignedAgent: null } : prev);
@@ -1046,21 +1458,6 @@ export const Conversations = () => {
     return channelMap[channel] || { icon: null, color: 'bg-gray-500', label: channel };
   };
 
-  const normalizeChannel = (channel?: string) => {
-    const channelMapping: Record<string, string> = {
-      'wa': 'whatsapp',
-      'wsp': 'whatsapp',
-      'ig': 'instagram',
-      'tg': 'telegram',
-      'facebook_messenger': 'messenger',
-      'fb': 'messenger',
-      'facebook': 'messenger'
-    };
-    if (!channel) return 'whatsapp';
-    const normalized = String(channel).toLowerCase().trim();
-    return channelMapping[normalized] || normalized;
-  };
-
   if (loading) return <PageLoader sectionName="Conversaciones" />;
 
   return (
@@ -1080,17 +1477,6 @@ export const Conversations = () => {
                 title="Nueva conversación"
               >
                 <Plus className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => {
-                  setFilterStatus(filterStatus === 'groups' ? 'all' : 'groups');
-                  setCurrentPage(1);
-                }}
-                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${filterStatus === 'groups' ? 'text-accent-500 bg-accent-500/10 shadow-[0_0_10px_rgba(249,115,22,0.2)]' : 'text-gray-400 hover:text-accent-500 hover:bg-accent-500/10'}`}
-                title={filterStatus === 'groups' ? "Viendo solo grupos" : "Filtrar por grupos"}
-              >
-                <Users className="w-4 h-4" />
               </button>
 
               <div className="relative">
@@ -1119,26 +1505,49 @@ export const Conversations = () => {
                         {f.label}
                       </button>
                     ))}
-                    <div className="px-3 py-1.5 border-t border-gray-100 dark:border-white/5 mt-1 mb-1">
+                    <div className="px-3 py-1.5 border-t border-gray-100 dark:border-white/5 mt-1 mb-1 flex items-center justify-between">
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Canal</p>
+                      {filterChannels.length > 0 && (
+                        <button
+                          onClick={() => { setFilterChannels([]); setCurrentPage(1); }}
+                          className="text-[8px] font-black uppercase tracking-widest text-accent-500 hover:underline"
+                        >
+                          Limpiar
+                        </button>
+                      )}
                     </div>
+                    <button
+                      onClick={() => { setFilterChannels([]); setCurrentPage(1); }}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${filterChannels.length === 0 ? 'text-accent-500 bg-accent-500/5' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      <span className="flex-1 text-left">Todos</span>
+                    </button>
                     {[
-                      { id: 'all', label: 'Todos', icon: MessageCircle },
                       { id: 'whatsapp', label: 'WhatsApp', icon: FaWhatsapp },
                       { id: 'instagram', label: 'Instagram', icon: FaInstagram },
                       { id: 'tiktok', label: 'TikTok', icon: FaTiktok },
                       { id: 'telegram', label: 'Telegram', icon: FaTelegram },
                       { id: 'messenger', label: 'Messenger', icon: FaFacebookMessenger }
-                    ].map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => { setFilterChannel(f.id); setIsFilterOpen(false); setCurrentPage(1); }}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${filterChannel === f.id ? 'text-accent-500 bg-accent-500/5' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
-                      >
-                        {f.icon ? <f.icon className="w-3 h-3" /> : <span className="w-3 h-3 flex items-center justify-center text-[9px] font-bold">T</span>}
-                        {f.label}
-                      </button>
-                    ))}
+                    ].map(f => {
+                      const active = filterChannels.includes(f.id);
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => {
+                            setFilterChannels(prev => prev.includes(f.id) ? prev.filter(c => c !== f.id) : [...prev, f.id]);
+                            setCurrentPage(1);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${active ? 'text-accent-500 bg-accent-500/5' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                        >
+                          <span className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center shrink-0 transition-all ${active ? 'bg-accent-500 border-accent-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                            {active && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                          </span>
+                          {f.icon ? <f.icon className="w-3 h-3" /> : <span className="w-3 h-3 flex items-center justify-center text-[9px] font-bold">T</span>}
+                          <span className="flex-1 text-left">{f.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1170,6 +1579,7 @@ export const Conversations = () => {
             const avatar = generateAvatar(contact);
             const channelBadge = getChannelBadge(normalizeChannel(conv.channel));
             const ChannelIcon = channelBadge.icon;
+            const preview = getConversationPreview(conv.lastMessageContent);
 
             return (
               <div
@@ -1234,8 +1644,12 @@ export const Conversations = () => {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <p className={`text-[12px] truncate w-full pr-4 ${isSelected ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                      {parseMessage(conv.lastMessageContent) || 'Sin mensajes'}
+                    <p className={`text-[12px] truncate w-full pr-4 flex items-center gap-1 ${isSelected ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {preview.kind === 'image' && <Camera className="w-3 h-3 shrink-0" />}
+                      {preview.kind === 'video' && <Video className="w-3 h-3 shrink-0" />}
+                      {preview.kind === 'audio' && <Mic className="w-3 h-3 shrink-0" />}
+                      {preview.kind === 'document' && <FileText className="w-3 h-3 shrink-0" />}
+                      <span className="truncate">{preview.text || 'Sin mensajes'}</span>
                     </p>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1286,9 +1700,19 @@ export const Conversations = () => {
       </div>
 
       {/* --- MAIN PANE --- */}
-      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden h-full relative bg-[#efeae2] dark:bg-[#0b141a] ${showMobileChat ? 'flex' : 'hidden md:flex'}`}>
-        {/* Subtle Chat Background Pattern (estilo WhatsApp) */}
-        <div className="absolute inset-0 z-0 opacity-[0.5] dark:opacity-[0.12] pointer-events-none mix-blend-multiply dark:mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2351847c' fill-opacity='0.08'%3E%3Cpath d='M0 0h32v2H0zM0 8h8v2H0zM0 16h16v2H0zM0 24h24v2H0zM0 30h16v2H0zM8 0v2H6V0zM16 0v2h-2V0zM24 0v2h-2V0zM30 0v2h2V0zM8 6v2H6V6zM16 6v2h-2V6zM24 6v2h-2V6zM30 6v2h2V6zM8 14v2H6v-2zM16 14v2h-2v-2zM24 14v2h-2v-2zM30 14v2h2v-2zM8 22v2H6v-2zM16 22v2h-2v-2zM24 22v2h-2v-2zM30 22v2h2v-2zM8 30v2H6v-2zM16 30v2h-2v-2zM24 30v2h-2v-2zM30 30v2h2v-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
+      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden h-full relative ${showMobileChat ? 'flex' : 'hidden md:flex'}`} style={{ backgroundColor: chatThemeMode.bg }}>
+        {/* Chat Background Pattern */}
+        {chatThemeMode.image && (
+          <div
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              backgroundImage: chatThemeMode.image,
+              backgroundSize: 'auto',
+              opacity: chatThemeMode.opacity,
+              mixBlendMode: chatThemeMode.blend,
+            }}
+          />
+        )}
 
         {selectedConv ? (
           <>
@@ -1375,6 +1799,9 @@ export const Conversations = () => {
                         )}
                         <button onClick={() => handleBlockContact(selectedConv.contactId?._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                           <Shield className={`w-4 h-4 ${blockedContacts.has(selectedConv.contactId?._id || '') ? 'text-red-500' : 'text-gray-400'}`} /> {blockedContacts.has(selectedConv.contactId?._id || '') ? 'Bloqueado' : 'Bloquear'}
+                        </button>
+                        <button onClick={() => { setIsMenuOpen(false); setIsChatThemeOpen(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                          <Palette className="w-4 h-4 text-gray-400" /> Fondo del chat
                         </button>
                         <div className="border-t border-gray-100 dark:border-white/5" />
                         <button onClick={(e) => { setIsMenuOpen(false); handleDeleteConversation(e as any, selectedConv._id, selectedConv.contactId?._id); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
@@ -1535,6 +1962,9 @@ export const Conversations = () => {
                                     <Bot className="w-4 h-4 text-emerald-500" /> Reactivar bot
                                   </button>
                                 )}
+                                <button onClick={() => { setIsChatMenuOpen(false); setIsChatThemeOpen(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                  <Palette className="w-4 h-4 text-gray-400" /> Fondo del chat
+                                </button>
                                 <div className="border-t border-gray-100 dark:border-white/5" />
                                 <button onClick={(e) => { setIsChatMenuOpen(false); handleDeleteConversation(e as any, selectedConv._id, selectedConv.contactId?._id); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                                   <Trash2 className="w-4 h-4" /> Eliminar
@@ -1730,19 +2160,6 @@ export const Conversations = () => {
                 </div>
               )}
 
-              {/* Quick Replies */}
-              <div className="flex gap-2 mb-3 overflow-x-auto pb-1 custom-scrollbar">
-                {['Gracias', 'Perfecto', 'Enviado', 'Confirmado', 'Te llamo'].map((reply) => (
-                  <button
-                    key={reply}
-                    onClick={() => setMessageText(reply)}
-                    className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-full text-[11px] font-bold text-gray-600 dark:text-gray-300 hover:bg-accent-500/10 hover:border-accent-500/30 hover:text-accent-600 dark:hover:text-accent-400 transition-all duration-200 active:scale-95"
-                  >
-                    {reply}
-                  </button>
-                ))}
-              </div>
-
               {whatsappConnections.length > 0 && (
                 <div className="mb-2">
                   <Dropdown
@@ -1790,6 +2207,78 @@ export const Conversations = () => {
                         Catálogo
                       </div>
                     </button>
+                    <div className="relative">
+                      <button onClick={() => setIsQuickRepliesOpen(o => !o)} className={`p-1.5 md:p-2 transition-all relative group/quick ${isQuickRepliesOpen ? 'text-accent-500 bg-accent-500/10 rounded-lg' : 'text-gray-400 hover:text-accent-500'}`}>
+                        <Zap className="w-4 h-4 md:w-5 md:h-5" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded-lg opacity-0 group-hover/quick:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden md:block">
+                          Mensajes rápidos
+                        </div>
+                      </button>
+                      {isQuickRepliesOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsQuickRepliesOpen(false)} />
+                          <div className="absolute bottom-full right-0 mb-2 w-72 md:w-80 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-3 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Mensajes rápidos</span>
+                              <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600">{quickReplies.length}</span>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                              {quickReplies.length === 0 && (
+                                <p className="text-[10px] font-bold text-gray-400 px-2 py-3 text-center">Sin mensajes rápidos</p>
+                              )}
+                              {quickReplies.map((reply, i) => (
+                                <div key={`${reply}-${i}`} className="group/qr flex items-center gap-1 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+                                  {editingQuickReplyIndex === i ? (
+                                    <>
+                                      <input
+                                        autoFocus
+                                        value={editingQuickReplyValue}
+                                        onChange={(e) => setEditingQuickReplyValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') saveQuickReply(i);
+                                          if (e.key === 'Escape') { setEditingQuickReplyIndex(null); setEditingQuickReplyValue(''); }
+                                        }}
+                                        className="flex-1 min-w-0 bg-transparent outline-none text-[12px] font-bold text-gray-900 dark:text-white px-2.5 py-1.5"
+                                      />
+                                      <button onClick={() => saveQuickReply(i)} title="Guardar" className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all">
+                                        <Check className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => { setMessageText(reply); setIsQuickRepliesOpen(false); }}
+                                        className="flex-1 min-w-0 text-left px-2.5 py-1.5 text-[12px] font-bold text-gray-700 dark:text-gray-200 truncate"
+                                      >
+                                        {reply}
+                                      </button>
+                                      <button onClick={() => { setEditingQuickReplyIndex(i); setEditingQuickReplyValue(reply); }} title="Editar" className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-accent-500 hover:bg-accent-500/10 rounded-lg transition-all md:opacity-0 md:group-hover/qr:opacity-100">
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => deleteQuickReply(i)} title="Eliminar" className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all md:opacity-0 md:group-hover/qr:opacity-100">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="p-2 border-t border-gray-100 dark:border-white/5 flex items-center gap-1">
+                              <input
+                                value={newQuickReply}
+                                onChange={(e) => setNewQuickReply(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') addQuickReply(); }}
+                                placeholder="Nuevo mensaje rápido..."
+                                className="flex-1 min-w-0 bg-gray-50 dark:bg-white/5 rounded-xl px-2.5 py-1.5 text-[12px] font-bold text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-accent-500/20"
+                              />
+                              <button onClick={addQuickReply} disabled={!newQuickReply.trim()} title="Agregar" className={`p-1.5 rounded-lg transition-all ${newQuickReply.trim() ? 'text-white bg-accent-500 hover:brightness-110' : 'text-gray-300 dark:text-gray-600'}`}>
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <button onClick={handleAttachFile} className="p-1.5 md:p-2 text-gray-400 hover:text-accent-500 transition-all">
                       <Paperclip className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
@@ -2024,6 +2513,91 @@ export const Conversations = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal Fondo del chat */}
+      <Modal
+        open={isChatThemeOpen}
+        onClose={() => setIsChatThemeOpen(false)}
+        title="Fondo del chat"
+        subtitle="Elige el fondo que se verá en tus conversaciones"
+        icon={<Palette className="w-5 h-5 text-accent-500" />}
+        size="sm"
+      >
+        <div className="grid grid-cols-3 gap-3">
+          {CHAT_THEMES.map(t => {
+            const active = t.id === chatThemeId;
+            const preview = getThemeAppearance(t, false);
+            return (
+              <button
+                key={t.id}
+                onClick={() => setChatThemeId(t.id)}
+                title={t.label}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-1.5 transition-all ${active ? 'ring-2 ring-accent-500 bg-accent-500/5' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              >
+                <span className="relative w-full h-14 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden" style={{ backgroundColor: preview.bg }}>
+                  {preview.image && (
+                    <span className="absolute inset-0" style={{ backgroundImage: preview.image, backgroundSize: 'auto', opacity: preview.opacity, mixBlendMode: preview.blend }} />
+                  )}
+                </span>
+                <span className={`text-[9px] font-bold truncate w-full text-center ${active ? 'text-accent-500' : 'text-slate-500 dark:text-slate-400'}`}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {chatTheme?.solid ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Color del fondo</p>
+              <p className="text-xs text-slate-400">Elige un color para el fondo sólido</p>
+            </div>
+            <input
+              type="color"
+              value={solidChatColor}
+              onChange={(e) => setSolidChatColor(e.target.value)}
+              className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-600 bg-transparent"
+            />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Personalizar</p>
+              {themeColorOverrides[chatTheme.id] && (
+                <button
+                  onClick={() => resetThemeColors(chatTheme.id)}
+                  className="text-xs font-semibold text-accent-500 hover:text-accent-600"
+                >
+                  Restablecer
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Color del fondo</span>
+              <input
+                type="color"
+                value={chatThemeColors.bg}
+                onChange={(e) => setThemeBg(chatTheme.id, e.target.value)}
+                className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-600 bg-transparent"
+              />
+            </div>
+            {!chatTheme.multiTone && chatThemeColors.color !== undefined && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Color del patrón</span>
+                <input
+                  type="color"
+                  value={chatThemeColors.color || '#000000'}
+                  onChange={(e) => setThemePatternColor(chatTheme.id, e.target.value)}
+                  className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-600 bg-transparent"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className="mt-4 text-[11px] text-slate-400 dark:text-slate-500">
+          Por defecto algunos fondos siguen el color de acento; puedes fijar tus propios colores aquí.
+        </p>
       </Modal>
     </div>
   );

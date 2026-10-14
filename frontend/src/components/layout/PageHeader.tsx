@@ -1,4 +1,5 @@
 import React from 'react';
+import { BannerPattern } from './BannerPattern';
 
 interface PageHeaderMeta {
   label: string;
@@ -28,11 +29,10 @@ const pillColors: Record<string, string> = {
 export const PageHeader = ({ title, highlight, description, icon: Icon, action, meta }: PageHeaderProps) => {
   return (
     <div className="-mx-4 md:-mx-6 mb-5">
-      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-dark-card px-6 md:px-10 py-4 md:py-5 overflow-hidden border-b border-slate-100 dark:border-slate-800/40 shadow-sm">
+      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-[#0a0a0a] px-6 md:px-10 py-4 md:py-5 overflow-hidden border-b border-slate-100 dark:border-slate-800/40 shadow-sm">
         
-        {/* Strong radial gradient from right */}
-        <div className="absolute -top-20 -right-16 w-[450px] h-[450px] bg-gradient-to-l from-accent-500/45 via-accent-500/20 to-transparent dark:from-accent-500/55 dark:via-accent-500/25 dark:to-transparent rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-32 -right-10 w-[350px] h-[350px] bg-gradient-to-l from-slate-900/20 via-slate-900/10 to-transparent dark:from-white/15 dark:via-white/8 dark:to-transparent rounded-full blur-[80px] pointer-events-none" />
+        {/* Diamond pattern background */}
+        <BannerPattern className="absolute inset-0 pointer-events-none" />
 
         {/* Left accent bar */}
         <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-gradient-to-b from-accent-500 via-accent-500/70 to-accent-500/20 rounded-r-full" />

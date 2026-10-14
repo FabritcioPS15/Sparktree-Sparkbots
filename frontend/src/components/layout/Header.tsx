@@ -3,13 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Moon, Sun, Menu, LogOut, User,
   ChevronDown, Building2, Users, Search, Plus, HelpCircle, CreditCard,
-  Bot, Share2, Palette, Tag, BookOpen, FileText, Megaphone
+  Bot, Share2, Palette, Tag, BookOpen, FileText, Megaphone, Lock
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { NotificationBell } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConnections } from '../../contexts/ConnectionsContext';
-import { useCustomization, STATUS_GROUPS, BADGE_VARIANTS } from '../../contexts/CustomizationContext';
+import { useCustomization, STATUS_GROUPS, BADGE_VARIANTS, LOCKED_STATUS_VARIANTS, isLockedStatus } from '../../contexts/CustomizationContext';
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger } from 'react-icons/fa';
 import { SiTiktok } from 'react-icons/si';
 import { Modal } from '../ui/Modal';
@@ -642,23 +642,32 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                               connected: 'Conectado', connecting: 'Conectando', disconnected: 'Desconectado',
                               draft: 'Borrador', accepted: 'Aceptado', rejected: 'Rechazado', expired: 'Expirado',
                             };
-                            const currentVariant = statusColors[status] || 'warning';
+                            const currentVariant = isLockedStatus(status) ? LOCKED_STATUS_VARIANTS[status] : (statusColors[status] || 'warning');
                             const colorMap: Record<string, string> = {
                               primary: 'bg-accent-500', success: 'bg-emerald-500', warning: 'bg-amber-500',
                               danger: 'bg-red-500', info: 'bg-sky-500', default: 'bg-slate-400',
                             };
+                            const locked = isLockedStatus(status);
                             return (
                               <div key={status} className="flex items-center gap-3 py-1.5">
-                                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 w-28 shrink-0">{labels[status] || status}</span>
+                                <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 w-28 shrink-0 flex items-center gap-1.5">
+                                  {labels[status] || status}
+                                  {locked && <Lock className="w-3 h-3 text-slate-400 shrink-0" />}
+                                </span>
                                 <div className="flex gap-1.5">
                                   {BADGE_VARIANTS.map((v) => (
                                     <button
                                       key={v}
-                                      onClick={() => setStatusColor(status, v)}
+                                      onClick={() => { if (!locked) setStatusColor(status, v); }}
+                                      disabled={locked}
                                       className={`w-6 h-6 rounded-lg ${colorMap[v]} transition-all ${
-                                        currentVariant === v ? 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white scale-110' : 'opacity-30 hover:opacity-70'
+                                        locked
+                                          ? 'cursor-not-allowed opacity-25'
+                                          : 'opacity-30 hover:opacity-70'
+                                      } ${
+                                        currentVariant === v ? `ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white ${locked ? '!opacity-100' : 'scale-110'}` : ''
                                       }`}
-                                      title={v}
+                                      title={locked ? `${v} (fijo)` : v}
                                     />
                                   ))}
                                 </div>

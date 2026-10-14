@@ -11,7 +11,8 @@ import { PageBody } from '../../../components/layout/PageBody';
 import { DataTable } from '../../../components/ui/DataTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { Loader } from '../../../components/ui/Loader';
-import { AnimatedButton } from '../../../components/ui/AnimatedButton';
+import { HeaderButton } from '../../../components/ui/HeaderButton';
+import { CountBadge } from '../../../components/ui/CountBadge';
 import { KebabMenu } from '../../../components/ui/KebabMenu';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { SearchBar } from '../../../components/ui/SearchBar';
@@ -21,7 +22,7 @@ import { useNotifications } from '../../../contexts/NotificationContext';
 import { CreateReminderModal } from '../components/CreateReminderModal';
 import {
   getReminders, getReminder, sendReminder, pauseReminder, resumeReminder,
-  deleteReminder, cancelReminder, exportReminderExcel, exportGeneralRemindersExcel,
+  deleteReminder, cancelReminder, exportReminderExcel,
   getAllReminderContacts,
 } from '../../../services/api';
 
@@ -96,7 +97,6 @@ export const Reminders = () => {
   const [filterSchedule, setFilterSchedule] = useState('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [exportingId, setExportingId] = useState<string | null>(null);
-  const [exportingGeneral, setExportingGeneral] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const detailRef = useRef<ReminderDetail | null>(null);
 
@@ -257,27 +257,6 @@ export const Reminders = () => {
       });
     } finally {
       setExportingId(null);
-    }
-  };
-
-  // Descarga de Excel consolidado general
-  const handleExportGeneral = async () => {
-    setExportingGeneral(true);
-    try {
-      await exportGeneralRemindersExcel();
-      addNotification({
-        type: 'success',
-        title: 'Reporte General generado',
-        message: 'Reporte consolidado de todos los recordatorios descargado en Excel.',
-      });
-    } catch (err) {
-      addNotification({
-        type: 'error',
-        title: 'Error de exportación',
-        message: 'No se pudo generar el reporte general.',
-      });
-    } finally {
-      setExportingGeneral(false);
     }
   };
 
@@ -495,27 +474,12 @@ export const Reminders = () => {
         title="Recordatorios"
         description="Envía mensajes automatizados programados a tus contactos y genera reportes de entrega"
         icon={Bell}
-        meta={[
-          { label: 'Recordatorios', value: reminders.length, icon: Bell, color: 'accent' },
-          { label: 'Entregados', value: reminders.reduce((acc, r) => acc + r.sent, 0), icon: CheckCircle, color: 'emerald' },
-          { label: 'Fallidos', value: reminders.reduce((acc, r) => acc + r.failed, 0), icon: XCircle, color: 'red' },
-          { label: 'Activos', value: reminders.filter((r) => r.status === 'sending' || r.status === 'paused').length, icon: Send, color: 'blue' },
-          { label: 'Programados', value: reminders.filter((r) => r.status === 'scheduled').length, icon: Clock, color: 'amber' },
-        ]}
         action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportGeneral}
-              disabled={exportingGeneral || reminders.length === 0}
-              className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all shadow-sm disabled:opacity-50"
-              title="Descargar reporte general de todos los recordatorios en Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-              <span>{exportingGeneral ? 'Exportando...' : 'Reporte General (Excel)'}</span>
-            </button>
-            <AnimatedButton variant="accent" onClick={() => setShowCreate(true)} className="!px-4 !h-10 !text-sm !font-bold">
-              <Plus className="w-4 h-4" /> Nuevo Recordatorio
-            </AnimatedButton>
+          <div className="flex items-center gap-3">
+            <CountBadge count={reminders.length} />
+            <HeaderButton onClick={() => setShowCreate(true)} icon={<Plus className="w-4 h-4" />}>
+              Nuevo Recordatorio
+            </HeaderButton>
           </div>
         }
       />

@@ -160,12 +160,6 @@ export const Dashboard = () => {
         highlight={`${firstName} 👋`}
         description="Todo está funcionando correctamente en tu ecosistema inteligente."
         icon={LayoutDashboard}
-        meta={[
-          { label: 'Conversaciones hoy', value: messagesToday.toLocaleString(), icon: MessageSquare, color: 'accent' },
-          { label: 'Canales activos', value: connectedChannels, icon: Share2, color: 'blue' },
-          { label: 'Contactos', value: dashboardStats.totalContacts.toLocaleString(), icon: Users, color: 'emerald' },
-          { label: 'Alertas críticas', value: '0', icon: AlertCircle, color: 'amber' },
-        ]}
         action={
           <div className="flex flex-wrap gap-2">
             <HeaderButton

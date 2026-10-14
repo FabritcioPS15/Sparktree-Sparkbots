@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 
 export const STATUS_KEYS = [
   'pending', 'paid', 'cancelled', 'refunded', 'overdue',
@@ -17,6 +17,20 @@ export const STATUS_GROUPS: { name: string; keys: typeof STATUS_KEYS[number][] }
 ];
 export const BADGE_VARIANTS = ['primary', 'success', 'warning', 'danger', 'info', 'default'] as const;
 
+export const LOCKED_STATUS_VARIANTS: Record<string, string> = {
+  active: 'primary',
+  inactive: 'default',
+  error: 'danger',
+  success: 'success',
+  warning: 'warning',
+  info: 'info',
+  connected: 'success',
+  connecting: 'warning',
+  disconnected: 'danger',
+};
+
+export const isLockedStatus = (status: string): boolean => status in LOCKED_STATUS_VARIANTS;
+
 interface CustomizationContextType {
   accentColor: string;
   customAccentHex: string;
@@ -27,6 +41,7 @@ interface CustomizationContextType {
   fontFamily: string;
   radiusSize: string;
   statusColors: Record<string, string>;
+  accentRgb: Record<string, string>;
   setAccentColor: (v: string) => void;
   setCustomAccentHex: (v: string) => void;
   setTableDensity: (v: string) => void;
@@ -185,17 +200,15 @@ export const CustomizationProvider = ({ children }: { children: ReactNode }) => 
     serif: "'Outfit', 'Plus Jakarta Sans', 'Inter', sans-serif",
   };
 
+  const activeShades = useMemo(() => {
+    if (accentColor === 'custom') return generateShadesFromHex(customAccentHex);
+    return accentShades[accentColor] || accentShades.emerald;
+  }, [accentColor, customAccentHex]);
+
   useEffect(() => {
     const root = document.documentElement;
-    let shades: Record<string, string>;
 
-    if (accentColor === 'custom') {
-      shades = generateShadesFromHex(customAccentHex);
-    } else {
-      shades = accentShades[accentColor] || accentShades.emerald;
-    }
-
-    Object.entries(shades).forEach(([shade, rgb]) => {
+    Object.entries(activeShades).forEach(([shade, rgb]) => {
       root.style.setProperty(`--accent-${shade}`, rgb);
     });
 
@@ -212,7 +225,7 @@ export const CustomizationProvider = ({ children }: { children: ReactNode }) => 
     if (fontSize === 'small') root.style.fontSize = '13px';
     else if (fontSize === 'large') root.style.fontSize = '16px';
     else root.style.fontSize = '';
-  }, [accentColor, customAccentHex, tableDensity, layoutMode, cardStyle, fontSize, fontFamily, radiusSize]);
+  }, [activeShades, accentColor, customAccentHex, tableDensity, layoutMode, cardStyle, fontSize, fontFamily, radiusSize]);
 
   const update = (key: string, value: string, setter: (v: string) => void) => {
     setter(value);
@@ -220,6 +233,7 @@ export const CustomizationProvider = ({ children }: { children: ReactNode }) => 
   };
 
   const setStatusColor = (status: string, variant: string) => {
+    if (isLockedStatus(status)) return;
     setStatusColors(prev => {
       const next = { ...prev, [status]: variant };
       localStorage.setItem('status-colors', JSON.stringify(next));
@@ -238,6 +252,7 @@ export const CustomizationProvider = ({ children }: { children: ReactNode }) => 
       fontFamily,
       radiusSize,
       statusColors,
+      accentRgb: activeShades,
       setAccentColor: (v) => update('accent-color', v, setAccentColor),
       setCustomAccentHex: (v) => update('custom-accent-hex', v, setCustomAccentHex),
       setTableDensity: (v) => update('table-density', v, setTableDensity),

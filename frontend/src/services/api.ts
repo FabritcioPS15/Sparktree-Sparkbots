@@ -54,8 +54,8 @@ export const getTeamUsers = async () => {
   try {
     const response = await api.get('/users/team');
     return Array.isArray(response.data) ? response.data : [];
-  } catch (error) {
-    console.error('Error fetching team users:', error);
+  } catch (error: any) {
+    if (error?.response?.status !== 429) console.error('Error fetching team users:', error);
     return [];
   }
 };
@@ -185,8 +185,8 @@ export const getConversations = async () => {
   try {
     const response = await api.get('/conversations');
     return response.data;
-  } catch (error) {
-    console.error('Error fetching conversations:', error);
+  } catch (error: any) {
+    if (error?.response?.status !== 429) console.error('Error fetching conversations:', error);
     throw error;
   }
 };
@@ -195,8 +195,8 @@ export const getConversationMessages = async (id: string) => {
   try {
     const response = await api.get(`/conversations/${id}/messages`);
     return response.data;
-  } catch (error) {
-    console.error('Error fetching messages:', error);
+  } catch (error: any) {
+    if (error?.response?.status !== 429) console.error('Error fetching messages:', error);
     throw error;
   }
 };

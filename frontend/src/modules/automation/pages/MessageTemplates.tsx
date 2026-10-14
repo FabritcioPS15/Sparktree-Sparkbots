@@ -203,10 +203,6 @@ export const MessageTemplates = () => {
         title="Plantillas de Mensajes"
         description="Crea y reutiliza mensajes para campañas, recordatorios de revisión vehicular, cobranzas y más"
         icon={MessageSquare}
-        meta={[
-          { label: 'Plantillas', value: stats?.totalTemplates || 0, icon: FileText, color: 'accent' },
-          { label: 'Usos totales', value: stats?.totalUsage || 0, icon: BarChart3, color: 'emerald' },
-        ]}
         action={
           <div className="flex items-center gap-3">
             <CountBadge count={templates.length} />

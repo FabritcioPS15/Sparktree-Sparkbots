@@ -1,5 +1,5 @@
 import { Badge } from './Badge';
-import { useCustomization } from '../../contexts/CustomizationContext';
+import { useCustomization, LOCKED_STATUS_VARIANTS } from '../../contexts/CustomizationContext';
 
 export interface StatusBadgeProps {
   status: string;
@@ -29,8 +29,9 @@ const defaultVariants: Record<string, string> = {
 export const StatusBadge = ({ status, variant, size = 'sm', dot = true }: StatusBadgeProps) => {
   const customization = useCustomization();
   const statusKey = status?.toLowerCase() || 'default';
+  const lockedVariant = LOCKED_STATUS_VARIANTS[statusKey];
   const customVariant = customization?.statusColors?.[statusKey];
-  const badgeVariant = variant || customVariant || defaultVariants[statusKey] || 'default';
+  const badgeVariant = variant || lockedVariant || customVariant || defaultVariants[statusKey] || 'default';
   const label = statusLabels[statusKey] || status || 'Desconocido';
 
   return (

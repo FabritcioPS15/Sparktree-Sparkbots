@@ -582,11 +582,6 @@ export const WhatsAppTemplates = () => {
         title="Templates de WhatsApp"
         description="Templates oficiales de Meta — gestiona y crea templates para campañas masivas"
         icon={Cloud}
-        meta={[
-          { label: 'Aprobados', value: counts['APPROVED'] || 0, icon: CheckCircle2, color: 'emerald' },
-          { label: 'Pendientes', value: counts['PENDING'] || 0, icon: Clock, color: 'amber' },
-          { label: 'Rechazados', value: counts['REJECTED'] || 0, icon: XCircle, color: 'red' },
-        ]}
         action={
           <HeaderButton onClick={() => setShowCreate(true)} disabled={!selectedConnectionId} icon={<Plus className="w-4 h-4" />}>
             Nuevo Template
