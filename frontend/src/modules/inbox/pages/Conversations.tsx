@@ -250,8 +250,10 @@ export const Conversations = () => {
   const [loading, setLoading] = useState(true);
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
-  const [whatsappConnections, setWhatsappConnections] = useState<{ id: string; display_name: string }[]>([]);
+  const [whatsappConnections, setWhatsappConnections] = useState<any[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState('');
+  const [isWaConnectionMenuOpen, setIsWaConnectionMenuOpen] = useState(false);
+  const waMenuRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterChannels, setFilterChannels] = useState<string[]>([]);
@@ -295,6 +297,7 @@ export const Conversations = () => {
   const [startPhone, setStartPhone] = useState('');
   const [startText, setStartText] = useState('');
   const [startCloudConnId, setStartCloudConnId] = useState('');
+  const [startBaileysConnId, setStartBaileysConnId] = useState('');
   const [cloudConnections, setCloudConnections] = useState<any[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<any[]>([]);
   const [loadingMetaTemplates, setLoadingMetaTemplates] = useState(false);
@@ -302,11 +305,36 @@ export const Conversations = () => {
   const [selectedTemplateLang, setSelectedTemplateLang] = useState('es');
   const [submittingStart, setSubmittingStart] = useState(false);
 
+  const selectedConnection = useMemo(
+    () => whatsappConnections.find(c => c.id === selectedConnectionId),
+    [whatsappConnections, selectedConnectionId]
+  );
+
+  const connectedWaCount = useMemo(
+    () => whatsappConnections.filter(c => c.status === 'connected' || c.status === 'active').length,
+    [whatsappConnections]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (waMenuRef.current && !waMenuRef.current.contains(event.target as Node)) {
+        setIsWaConnectionMenuOpen(false);
+      }
+    };
+    if (isWaConnectionMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isWaConnectionMenuOpen]);
+
   const openNewConversationModal = async () => {
     setShowStartModal(true);
     setStartPhone('');
     setStartText('');
     setSelectedTemplateName('');
+    setStartBaileysConnId(selectedConnectionId || (whatsappConnections.find(c => c.type === 'baileys')?.id || ''));
     try {
       const res = await api.get('/platform/connections');
       const conns = (res.data || []).filter((c: any) => c.platform_type === 'whatsapp');
@@ -382,7 +410,7 @@ export const Conversations = () => {
         text: startText.trim(),
         templateName: selectedTemplateName,
         languageCode: selectedTemplateLang,
-        connectionId: startCloudConnId,
+        connectionId: startProvider === 'whatsapp_cloud' ? startCloudConnId : (startBaileysConnId || selectedConnectionId || undefined),
         provider: startProvider
       };
 
@@ -595,14 +623,53 @@ export const Conversations = () => {
     }
   }, [id, conversations]);
 
-  useEffect(() => {
-    api.get('/multi-whatsapp/connections').then(res => {
-      if (Array.isArray(res.data)) {
-        setWhatsappConnections(res.data);
-        const active = res.data.find((c: any) => c.status === 'connected');
-        if (active) setSelectedConnectionId(active.id);
+  const loadWhatsAppConnections = async () => {
+    try {
+      const [mwRes, platRes] = await Promise.allSettled([
+        api.get('/multi-whatsapp/connections'),
+        api.get('/platform/connections')
+      ]);
+
+      const list: any[] = [];
+
+      if (mwRes.status === 'fulfilled' && Array.isArray(mwRes.value.data)) {
+        mwRes.value.data.forEach((c: any) => {
+          list.push({
+            id: c.id,
+            displayName: c.displayName || c.display_name || 'WhatsApp Web',
+            phoneNumber: c.phoneNumber || c.phone_number || '',
+            status: c.status || 'connected',
+            type: 'baileys'
+          });
+        });
       }
-    }).catch(() => { });
+
+      if (platRes.status === 'fulfilled' && Array.isArray(platRes.value.data)) {
+        const cloudWa = platRes.value.data.filter((c: any) => c.platform_type === 'whatsapp');
+        cloudWa.forEach((c: any) => {
+          list.push({
+            id: c.id,
+            displayName: c.display_name || 'WhatsApp Cloud API',
+            phoneNumber: c.platform_account_id || c.config?.phoneNumber || '',
+            status: c.status || 'connected',
+            type: 'cloud'
+          });
+        });
+      }
+
+      setWhatsappConnections(list);
+      setSelectedConnectionId(prev => {
+        if (prev && list.some(c => c.id === prev)) return prev;
+        const active = list.find(c => c.status === 'connected' || c.status === 'active');
+        return active ? active.id : (list[0]?.id || '');
+      });
+    } catch (e) {
+      console.warn('Error loading WhatsApp connections', e);
+    }
+  };
+
+  useEffect(() => {
+    loadWhatsAppConnections();
   }, []);
 
   // Cargar los agentes reales del equipo para la asignación de conversaciones
@@ -1470,14 +1537,173 @@ export const Conversations = () => {
         <div className="pt-6 px-5 md:px-6 pb-3">
           <div className="flex items-center justify-between mb-5">
             <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Conversaciones</h1>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={openNewConversationModal}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-accent-500 text-black hover:bg-accent-600 transition-all shadow-md"
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-accent-500 text-black hover:bg-accent-600 transition-all shadow-md group relative"
                 title="Nueva conversación"
               >
                 <Plus className="w-4 h-4" />
               </button>
+
+              {/* Botón selector de conexión de WhatsApp */}
+              <div className="relative" ref={waMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWaConnectionMenuOpen(!isWaConnectionMenuOpen);
+                    setIsFilterOpen(false);
+                    setIsMenuOpen(false);
+                  }}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative ${
+                    isWaConnectionMenuOpen
+                      ? 'bg-[#25D366] text-white shadow-md shadow-[#25D366]/30'
+                      : selectedConnectionId
+                        ? 'bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25 border border-[#25D366]/30'
+                        : 'text-gray-400 hover:text-[#25D366] hover:bg-[#25D366]/10'
+                  }`}
+                  title={
+                    selectedConnection
+                      ? `Línea WhatsApp: ${selectedConnection.displayName || selectedConnection.phoneNumber || 'Activa'}`
+                      : 'Seleccionar conexión de WhatsApp'
+                  }
+                >
+                  <FaWhatsapp className="w-4 h-4" />
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-dark-card ${
+                      connectedWaCount > 0 ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-gray-400'
+                    }`}
+                  />
+                </button>
+
+                {isWaConnectionMenuOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-dark-card rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 p-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-white/5 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-[#25D366]/15 text-[#25D366] flex items-center justify-center">
+                          <FaWhatsapp className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-black text-gray-900 dark:text-white leading-tight">Conexión de WhatsApp</p>
+                          <p className="text-[9px] text-gray-400 font-medium">Línea activa para responder</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsWaConnectionMenuOpen(false);
+                          navigate('/multi-whatsapp');
+                        }}
+                        className="text-[10px] font-bold text-accent-500 hover:text-accent-600 transition-colors uppercase tracking-wider"
+                      >
+                        Gestionar
+                      </button>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto space-y-1 py-1 custom-scrollbar">
+                      {/* Opción Automática */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedConnectionId('');
+                          setIsWaConnectionMenuOpen(false);
+                          addNotification({
+                            type: 'info',
+                            title: 'Conexión automática',
+                            message: 'Se usará la línea predeterminada de WhatsApp.'
+                          });
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
+                          !selectedConnectionId
+                            ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400 border border-accent-500/20'
+                            : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold leading-tight">Automático / Predeterminada</p>
+                            <p className="text-[10px] text-gray-400">Usa la primera línea activa disponible</p>
+                          </div>
+                        </div>
+                        {!selectedConnectionId && <Check className="w-3.5 h-3.5 text-accent-500 shrink-0" />}
+                      </button>
+
+                      {whatsappConnections.length === 0 ? (
+                        <div className="p-3 text-center">
+                          <p className="text-xs text-gray-400 mb-2">No hay líneas de WhatsApp conectadas</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsWaConnectionMenuOpen(false);
+                              navigate('/multi-whatsapp');
+                            }}
+                            className="px-3 py-1.5 bg-[#25D366] text-white text-xs font-bold rounded-xl hover:bg-[#128C7E] transition-all shadow-sm"
+                          >
+                            Conectar WhatsApp
+                          </button>
+                        </div>
+                      ) : (
+                        whatsappConnections.map((conn) => {
+                          const isSelected = selectedConnectionId === conn.id;
+                          const isConn = conn.status === 'connected' || conn.status === 'active';
+                          return (
+                            <button
+                              key={conn.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedConnectionId(conn.id);
+                                setIsWaConnectionMenuOpen(false);
+                                addNotification({
+                                  type: 'success',
+                                  title: 'Línea de WhatsApp seleccionada',
+                                  message: `Línea activa: ${conn.displayName || conn.phoneNumber || 'WhatsApp'}`
+                                });
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
+                                isSelected
+                                  ? 'bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30'
+                                  : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    isConn ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-red-400'
+                                  }`}
+                                />
+                                <div className="truncate">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-xs font-bold leading-tight truncate">
+                                      {conn.displayName || 'Línea WhatsApp'}
+                                    </p>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 uppercase font-bold shrink-0">
+                                      {conn.type === 'cloud' ? 'Cloud' : 'QR'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 truncate">
+                                    {conn.phoneNumber ? conn.phoneNumber : (isConn ? 'Conectado' : 'Desconectado')}
+                                  </p>
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#25D366] shrink-0 ml-2" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {selectedConnection && (
+                      <div className="mt-1 pt-2 border-t border-gray-100 dark:border-white/5 px-3 flex items-center justify-between text-[10px] text-gray-400">
+                        <span>Línea seleccionada:</span>
+                        <span className="font-bold text-[#25D366] truncate max-w-[150px]">
+                          {selectedConnection.displayName || selectedConnection.phoneNumber}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="relative">
                 <button
@@ -2160,16 +2386,6 @@ export const Conversations = () => {
                 </div>
               )}
 
-              {whatsappConnections.length > 0 && (
-                <div className="mb-2">
-                  <Dropdown
-                    value={selectedConnectionId}
-                    onChange={(v) => setSelectedConnectionId(v)}
-                    options={whatsappConnections.map(c => ({ value: c.id, label: c.display_name }))}
-                    placeholder="Conexión WhatsApp..."
-                  />
-                </div>
-              )}
               <input type="file" ref={fileInputRef} onChange={handleFileSelected} accept="image/*,.pdf,.doc,.docx" className="hidden" />
               {isRecording ? (
                 <div className="bg-white dark:bg-dark-card rounded-[1.5rem] shadow-xl border border-red-200 dark:border-red-500/30 flex items-center px-4 md:px-6 py-2.5 md:py-3 gap-3 animate-in fade-in duration-200">
@@ -2423,6 +2639,24 @@ export const Conversations = () => {
               className="w-full px-4 py-3 dark:bg-white/5 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-sm text-slate-900 dark:text-white"
             />
           </div>
+
+          {/* If Baileys: Select Baileys Connection if multiple */}
+          {startProvider === 'baileys' && whatsappConnections.filter(c => c.type === 'baileys').length > 1 && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Línea WhatsApp (Baileys)</label>
+              <select
+                value={startBaileysConnId || selectedConnectionId}
+                onChange={e => setStartBaileysConnId(e.target.value)}
+                className="w-full px-4 py-3 dark:bg-white/5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none"
+              >
+                {whatsappConnections.filter(c => c.type === 'baileys').map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.displayName} {c.phoneNumber ? `(${c.phoneNumber})` : ''} - {c.status === 'connected' ? '🟢 Conectado' : '⚪ Desconectado'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* If Baileys: Free text message */}
           {startProvider === 'baileys' && (

@@ -6,7 +6,7 @@
 export interface RateLimitConfig {
   windowMs: number;
   maxRequests: number;
-  scope: string;
+  scope?: string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
 }

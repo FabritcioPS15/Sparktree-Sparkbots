@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { RateLimiterService } from '../rate-limiter.service';
+import { RateLimitConfig } from '../types/security.types';
 
 const rateLimiter = new RateLimiterService();
 

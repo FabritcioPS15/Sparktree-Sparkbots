@@ -544,11 +544,10 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                 <button
                   key={tab.key}
                   onClick={() => setCustomizeTab(tab.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
-                    isActive
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${isActive
                       ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-sm'
                       : 'text-slate-400 hover:text-slate-600 dark:hover:text-accent-300 hover:bg-slate-100 dark:hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -563,7 +562,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
               <div className="space-y-5">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 dark:bg-slate-700" />
-                  COLOR PRINCIPAL
+                  COLORES PREDETERMINADOS
                 </p>
                 <div className="grid grid-cols-4 gap-3">
                   {[
@@ -583,11 +582,10 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                     <button
                       key={key}
                       onClick={() => setAccentColor(key)}
-                      className={`relative flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${
-                        accentColor === key
+                      className={`relative flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${accentColor === key
                           ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white bg-slate-50 dark:bg-white/5 shadow-md'
                           : 'hover:bg-slate-50 dark:hover:bg-white/5 hover:shadow-sm'
-                      }`}
+                        }`}
                     >
                       <span className={`w-10 h-10 rounded-xl shadow-sm transition-transform ${accentColor === key ? 'scale-110' : ''}`} style={{ backgroundColor: hex }} />
                       <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate w-full text-center">{label}</span>
@@ -602,11 +600,10 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                       onChange={(e) => { setCustomAccentHex(e.target.value); setAccentColor('custom'); }}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <span className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-                      accentColor === 'custom'
+                    <span className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${accentColor === 'custom'
                         ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white bg-slate-50 dark:bg-white/5 shadow-md'
                         : 'bg-slate-100/50 dark:bg-white/5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}>
+                      }`}>
                       <span className="w-6 h-6 rounded-lg" style={{ backgroundColor: accentColor === 'custom' ? customAccentHex : '#10b981' }} />
                       Personalizado
                     </span>
@@ -660,13 +657,11 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                                       key={v}
                                       onClick={() => { if (!locked) setStatusColor(status, v); }}
                                       disabled={locked}
-                                      className={`w-6 h-6 rounded-lg ${colorMap[v]} transition-all ${
-                                        locked
+                                      className={`w-6 h-6 rounded-lg ${colorMap[v]} transition-all ${locked
                                           ? 'cursor-not-allowed opacity-25'
                                           : 'opacity-30 hover:opacity-70'
-                                      } ${
-                                        currentVariant === v ? `ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white ${locked ? '!opacity-100' : 'scale-110'}` : ''
-                                      }`}
+                                        } ${currentVariant === v ? `ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#242424] ring-slate-900 dark:ring-white ${locked ? '!opacity-100' : 'scale-110'}` : ''
+                                        }`}
                                       title={locked ? `${v} (fijo)` : v}
                                     />
                                   ))}

@@ -342,7 +342,10 @@ router.post('/:id/send', async (req, res) => {
     } else {
       // ── Baileys ────────────────────────────────────────────────────────────
       const connections = (multiWhatsAppService as any).getOrganizationConnections(orgId);
-      const activeConn = connections.find((c: any) => c.status === 'connected');
+      const reqConnId = req.body.whatsapp_connection_id || req.body.connectionId;
+      const activeConn = reqConnId
+        ? (connections.find((c: any) => c.id === reqConnId) || connections.find((c: any) => c.status === 'connected'))
+        : (conversation.platform_connection_id ? (connections.find((c: any) => c.id === conversation.platform_connection_id) || connections.find((c: any) => c.status === 'connected')) : connections.find((c: any) => c.status === 'connected'));
 
       if (!activeConn) {
         return res.status(503).json({ error: 'WhatsApp no está conectado para esta organización. Por favor conecta el dispositivo primero.' });
@@ -495,7 +498,9 @@ router.post('/start', async (req, res) => {
       }
 
       const connections = (multiWhatsAppService as any).getOrganizationConnections(orgId);
-      const activeConn = connections.find((c: any) => c.status === 'connected');
+      const activeConn = connectionId
+        ? (connections.find((c: any) => c.id === connectionId) || connections.find((c: any) => c.status === 'connected'))
+        : connections.find((c: any) => c.status === 'connected');
 
       if (!activeConn) {
         return res.status(503).json({ error: 'WhatsApp (Baileys) no está conectado' });

@@ -13,8 +13,8 @@ export class RateLimiterService {
    * different limiters (global, api, auth) never share counters for the same
    * identifier.
    */
-  private buildKey(identifier: string, scope: string): string {
-    return `${scope}:${identifier}`;
+  private buildKey(identifier: string, scope?: string): string {
+    return `${scope || 'default'}:${identifier}`;
   }
 
   /**
