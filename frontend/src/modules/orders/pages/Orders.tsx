@@ -13,7 +13,7 @@ import { ViewToggle, ViewMode } from '../../../components/ui/ViewToggle';
 import { Modal } from '../../../components/ui/Modal';
 import { KebabMenu } from '../../../components/ui/KebabMenu';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
-import { Loader } from '../../../components/ui/Loader';
+import { PageLoader } from '../../../components/layout/PageLoader';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { getOrders, createOrder, deleteOrder } from '../../../services/api';
 
@@ -125,6 +125,8 @@ export const Orders = () => {
     (filterStatus === 'all' || o.status === filterStatus)
   );
 
+  if (loading && orders.length === 0) return <PageLoader sectionName="Pedidos" />;
+
   return (
     <PageContainer>
       <PageHeader
@@ -141,9 +143,6 @@ export const Orders = () => {
         }
       />
       <PageBody>
-        {loading && (
-          <div className="mb-4 text-xs text-slate-400 flex items-center gap-2"><Loader size="xs" /> Cargando pedidos...</div>
-        )}
         <div className="bg-white dark:bg-dark-card rounded-xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden p-6">
           <div className="flex items-center gap-3 mb-4">
             <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} placeholder="Buscar por cliente o ID..." className="flex-1" />

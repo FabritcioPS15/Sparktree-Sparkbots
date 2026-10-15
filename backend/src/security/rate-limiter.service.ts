@@ -45,13 +45,6 @@ export class RateLimiterService {
     const remaining = Math.max(0, config.maxRequests - requestInfo.count);
     const success = remaining >= 0 && requestInfo.count <= config.maxRequests;
 
-    // Sliding window: push the reset forward while the client keeps the
-    // bucket below the limit, so throttling is spread out instead of piling
-    // up at the start of every window.
-    if (success) {
-      requestInfo.resetTime = new Date(now.getTime() + config.windowMs);
-    }
-
     return {
       success,
       limit: config.maxRequests,

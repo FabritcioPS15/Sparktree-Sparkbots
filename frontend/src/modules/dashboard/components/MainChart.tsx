@@ -4,6 +4,7 @@ import { DashboardCard } from './DashboardCard';
 
 interface MainChartProps {
   data: any[];
+  loading?: boolean;
   selectedRange: string;
   onRangeChange: (range: string) => void;
   showCustomRange: boolean;
@@ -89,6 +90,7 @@ const pickerBaseProps = {
 
 export const MainChart: React.FC<MainChartProps> = ({
   data,
+  loading = false,
   selectedRange,
   onRangeChange,
   showCustomRange,
@@ -146,7 +148,12 @@ export const MainChart: React.FC<MainChartProps> = ({
         </div>
       )}
 
-      <div className="h-[300px] w-full mt-4">
+      <div className="h-[300px] w-full mt-4 relative">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-dark-bg/60">
+            <div className="loader" />
+          </div>
+        )}
         <Suspense
           fallback={
             <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">

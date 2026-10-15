@@ -11,6 +11,7 @@ import { PageBody } from '../../../components/layout/PageBody';
 import { DataTable } from '../../../components/ui/DataTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { Loader } from '../../../components/ui/Loader';
+import { PageLoader } from '../../../components/layout/PageLoader';
 import { HeaderButton } from '../../../components/ui/HeaderButton';
 import { CountBadge } from '../../../components/ui/CountBadge';
 import { KebabMenu } from '../../../components/ui/KebabMenu';
@@ -467,6 +468,8 @@ export const Reminders = () => {
     detail && detail.total > 0
       ? Math.min(100, Math.round(((detail.sent + detail.failed) / detail.total) * 100))
       : 0;
+
+  if (loading && reminders.length === 0) return <PageLoader sectionName="Recordatorios" />;
 
   return (
     <PageContainer>

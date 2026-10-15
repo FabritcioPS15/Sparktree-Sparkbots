@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, MessageSquare, Activity, Box, Zap, ChevronRight, UserPlus, Share2, AlertCircle, LayoutDashboard, Play, ShoppingCart, FileText, Target, Wallet, Calendar, Gift, BellRing } from 'lucide-react';
 import { getAnalytics, getDashboardAnalytics, getCrmDashboard, getOrders, getQuotes, getPromotions, getCalendarEvents, getReminders } from '../../../services/api';
@@ -48,6 +48,8 @@ export const Dashboard = () => {
   const [dashboardActivity, setDashboardActivity] = useState<any[]>([]);
   const [dashboardInsights, setDashboardInsights] = useState<any[]>([]);
   const [messagesToday, setMessagesToday] = useState(0);
+  const [chartLoading, setChartLoading] = useState(false);
+  const initialDone = useRef({ stats: false, range: false });
 
   const platformData = [
     { id: 'whatsapp', name: 'WhatsApp', icon: FaWhatsapp, color: 'text-emerald-500', route: '/whatsapp-qr' },
@@ -57,30 +59,14 @@ export const Dashboard = () => {
     { id: 'messenger', name: 'Messenger', icon: FaFacebookMessenger, color: 'text-blue-600', route: '/facebook-config' }
   ];
 
+  // Datos independientes del rango: se cargan una sola vez al montar
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchStaticData = async () => {
       try {
-        const [analyticsData, dashboardData] = await Promise.allSettled([
-          getAnalytics(),
-          getDashboardAnalytics(selectedTimeRange),
-        ]);
-
-        const analytics = analyticsData.status === 'fulfilled' ? analyticsData.value : null;
-        const dash = dashboardData.status === 'fulfilled' ? dashboardData.value : null;
-
+        const analytics = await getAnalytics().catch(() => null);
         if (analytics) {
           const isConnected = analytics?.whatsapp?.connected || false;
           setMessagesToday(isConnected ? (analytics.stats?.whatsappMessagesToday || 0) : (analytics.stats?.messagesToday || 0));
-        }
-
-        if (dash) {
-          setMessagesData(dash.chart || []);
-          setSparklines(dash.sparklines || {});
-          setDashboardStats(dash.stats || {});
-          setDashboardActivity(dash.activity || []);
-          setDashboardInsights(dash.insights || []);
-        } else if (analytics) {
-          setMessagesData(analytics.interactionsPerDay || []);
         }
 
         try {
@@ -116,22 +102,55 @@ export const Dashboard = () => {
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
-        setLoading(false);
+        initialDone.current.stats = true;
+        if (initialDone.current.range) setLoading(false);
       }
     };
-    fetchDashboardData();
+    fetchStaticData();
+  }, []);
+
+  // Gráfico de interacciones: solo se refetch al cambiar el rango.
+  // `cancelled` descarta respuestas tardías de rangos anteriores (anti-carreras).
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRangeData = async () => {
+      try {
+        const dash = await getDashboardAnalytics(selectedTimeRange);
+        if (cancelled) return;
+        setMessagesData(dash?.chart || []);
+        setSparklines(dash?.sparklines || {});
+        setDashboardStats(dash?.stats || {});
+        setDashboardActivity(dash?.activity || []);
+        setDashboardInsights(dash?.insights || []);
+      } catch (e) {
+        if (!cancelled) console.error('Error fetching dashboard analytics:', e);
+      } finally {
+        if (!cancelled) {
+          initialDone.current.range = true;
+          if (initialDone.current.stats) setLoading(false);
+          setChartLoading(false);
+        }
+      }
+    };
+
+    setChartLoading(true);
+    loadRangeData();
 
     // Polling ligero: mantiene los AI Insights frescos (refresca cada 60s sin recargar la página)
     const insightsInterval = setInterval(async () => {
       try {
         const dash = await getDashboardAnalytics(selectedTimeRange);
-        if (dash?.insights) setDashboardInsights(dash.insights);
+        if (!cancelled && dash?.insights) setDashboardInsights(dash.insights);
       } catch (e) {
         /* silencioso */
       }
     }, 60000);
 
-    return () => clearInterval(insightsInterval);
+    return () => {
+      cancelled = true;
+      clearInterval(insightsInterval);
+    };
   }, [selectedTimeRange]);
 
   const handleRangeChange = (range: string) => {
@@ -220,6 +239,7 @@ export const Dashboard = () => {
           {/* Main Chart */}
           <MainChart
             data={messagesData}
+            loading={chartLoading}
             selectedRange={selectedTimeRange}
             onRangeChange={handleRangeChange}
             showCustomRange={showCustomRange}

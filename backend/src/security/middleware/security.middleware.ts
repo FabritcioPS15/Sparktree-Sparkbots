@@ -52,17 +52,25 @@ export const rateLimit = (scope: string, windowMs: number = 60000, maxRequests: 
  * 10 attempts per 15 minutes: enough for a user who mistypes a couple of
  * times, low enough to throttle credential stuffing.
  */
-export const authRateLimit = rateLimit('auth', 15 * 60 * 1000, 10);
+export const authRateLimit = rateLimit('auth', 15 * 60 * 1000, 30);
 
 /**
  * API rate limiting
  */
-export const apiRateLimit = rateLimit('api', 60 * 1000, 300); // 300 requests per minute per IP
+export const apiRateLimit = rateLimit(
+  'api',
+  60 * 1000,
+  process.env.NODE_ENV === 'production' ? 1200 : 5000
+); // 1200 req/min in prod, 5000 in dev
 
 /**
  * Global rate limiting (webhooks and other public routes)
  */
-export const globalRateLimit = rateLimit('global', 60 * 1000, 2000); // 2000 requests per minute per IP
+export const globalRateLimit = rateLimit(
+  'global',
+  60 * 1000,
+  process.env.NODE_ENV === 'production' ? 3000 : 10000
+); // 3000 req/min in prod, 10000 in dev
 
 /**
  * Security headers middleware

@@ -273,6 +273,15 @@ export const Conversations = () => {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewImage(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessagesLength = useRef(0);
@@ -1179,14 +1188,19 @@ export const Conversations = () => {
         }
       }
 
-      if (typeof parsed === 'string') return parsed;
+      if (typeof parsed === 'string') {
+        if (parsed.startsWith('data:image/') || parsed.startsWith('data:video/') || parsed.startsWith('data:audio/') || parsed.startsWith('data:application/')) {
+          return '';
+        }
+        return parsed;
+      }
 
       if (parsed && typeof parsed === 'object') {
-        const body = parsed.body ||
+        const body = parsed.caption ||
+          parsed.body ||
           parsed.bodyText ||
           (typeof parsed.text === 'string' ? parsed.text : parsed.text?.body) ||
           parsed.conversation ||
-          parsed.caption ||
           parsed.extendedTextMessage?.text ||
           parsed.interactive?.button_reply?.title ||
           parsed.interactive?.list_reply?.title ||
@@ -1200,7 +1214,7 @@ export const Conversations = () => {
         if (body && typeof body === 'string') return body;
 
         // If it's a media message without a text body
-        if (parsed.url || parsed.imageMessage || parsed.videoMessage || parsed.documentMessage || parsed.media) return '';
+        if (parsed.url || parsed.media_url || parsed.mediaUrl || parsed.imageMessage || parsed.videoMessage || parsed.documentMessage || parsed.audioMessage || parsed.media) return '';
         
         // Fallback for simple single-key objects from bot
         const keys = Object.keys(parsed);
@@ -1215,26 +1229,76 @@ export const Conversations = () => {
     }
   };
 
-  const getMessageMedia = (content: any): { url: string; type: 'image' | 'video' | 'document' | 'audio' } | null => {
+  const getMessageMedia = (content: any): { url: string; type: 'image' | 'video' | 'document' | 'audio'; filename?: string } | null => {
     if (!content) return null;
     try {
-      const parsed = typeof content === 'string' ? JSON.parse(content) : content;
-      const media =
-        parsed.imageMessage ||
-        parsed.videoMessage ||
-        parsed.documentMessage ||
-        parsed.media;
-      if (media?.url) return { url: media.url, type: media.mimetype?.startsWith('video') ? 'video' : media.mimetype?.startsWith('image') ? 'image' : media.mimetype?.startsWith('audio') ? 'audio' : 'document' };
-      if (parsed.url) {
-        if (parsed.type === 'audio') return { url: parsed.url, type: 'audio' };
-        return { url: parsed.url, type: 'image' };
+      if (typeof content === 'string' && content.startsWith('data:')) {
+        const isImage = content.startsWith('data:image/');
+        const isVideo = content.startsWith('data:video/');
+        const isAudio = content.startsWith('data:audio/');
+        return {
+          url: content,
+          type: isImage ? 'image' : isVideo ? 'video' : isAudio ? 'audio' : 'document'
+        };
       }
-      if (typeof content === 'string' && (content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i))) {
-        const match = content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i);
-        return match ? { url: match[0], type: 'image' } : null;
+
+      let parsed = content;
+      if (typeof content === 'string') {
+        try {
+          parsed = JSON.parse(content);
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        } catch {
+          // plain text
+        }
       }
+
+      if (parsed && typeof parsed === 'object') {
+        const media =
+          parsed.imageMessage ||
+          parsed.videoMessage ||
+          parsed.documentMessage ||
+          parsed.audioMessage ||
+          parsed.media;
+
+        if (media?.url) {
+          return {
+            url: media.url,
+            type: media.mimetype?.startsWith('video') ? 'video' : media.mimetype?.startsWith('image') ? 'image' : media.mimetype?.startsWith('audio') ? 'audio' : 'document',
+            filename: media.fileName || media.filename
+          };
+        }
+
+        const url = parsed.url || parsed.media_url || parsed.mediaUrl;
+        if (url && typeof url === 'string') {
+          const mimeOrType = parsed.type || parsed.mediaType || parsed.mimetype || '';
+          if (mimeOrType === 'audio' || String(mimeOrType).startsWith('audio') || url.match(/\.(mp3|ogg|wav|m4a|aac)/i)) {
+            return { url, type: 'audio', filename: parsed.filename };
+          }
+          if (mimeOrType === 'video' || String(mimeOrType).startsWith('video') || url.match(/\.(mp4|webm|mov|avi)/i)) {
+            return { url, type: 'video', filename: parsed.filename };
+          }
+          if (mimeOrType === 'document' || String(mimeOrType).startsWith('application') || url.match(/\.(pdf|doc|docx|xls|xlsx|csv|zip)/i)) {
+            return { url, type: 'document', filename: parsed.filename };
+          }
+          return { url, type: 'image', filename: parsed.filename };
+        }
+      }
+
+      if (typeof content === 'string') {
+        const match = content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/i);
+        if (match) return { url: match[0], type: 'image' };
+      }
+
       return null;
     } catch {
+      if (typeof content === 'string') {
+        if (content.startsWith('data:image/')) return { url: content, type: 'image' };
+        if (content.startsWith('data:audio/')) return { url: content, type: 'audio' };
+        if (content.startsWith('data:video/')) return { url: content, type: 'video' };
+        if (content.startsWith('data:application/')) return { url: content, type: 'document' };
+        const match = content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg)/i);
+        if (match) return { url: match[0], type: 'image' };
+      }
       return null;
     }
   };
@@ -2243,45 +2307,98 @@ export const Conversations = () => {
                     .replace(/\n/g, '<br />');
                 };
 
+                const isImageOnly = media && media.type === 'image' && !body;
+
                 return (
                   <div key={`${m._id}-${searchKey}`} ref={el => { chatSearchRefs.current[msgIdx] = el; }}
                     className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300 ${isCurrentSearch ? 'ring-2 ring-amber-400 dark:ring-amber-500 rounded-2xl scale-[1.02]' : ''}`}>
-                    <div className={`flex items-end gap-1.5 max-w-[90%] md:max-w-[80%] lg:max-w-[70%] xl:max-w-[60%] ${isMe ? 'animate-[slideInRight_0.3s_ease-out]' : 'animate-[slideInLeft_0.3s_ease-out]'}`}>
+                    <div className={`flex items-end gap-1.5 max-w-[88%] sm:max-w-[75%] md:max-w-[65%] lg:max-w-[55%] ${isMe ? 'animate-[slideInRight_0.3s_ease-out]' : 'animate-[slideInLeft_0.3s_ease-out]'}`}>
                       {!isMe && (
                         <div className="w-7 h-7 rounded-full bg-white dark:bg-white/10 flex items-center justify-center flex-shrink-0 mb-0.5 overflow-hidden shadow-sm border border-gray-100 dark:border-white/5">
                           {selectedConv.contactId?.isGroup ? <Users className="w-3.5 h-3.5 text-gray-400" /> : <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{generateAvatar(selectedConv.contactId).content}</span>}
                         </div>
                       )}
-                      <div className={`relative px-4 py-2.5 rounded-[1.25rem] shadow-sm transition-all duration-200 ${isMe
+                      <div className={`relative rounded-[1.25rem] shadow-sm transition-all duration-200 overflow-hidden ${isMe
                         ? 'bg-gradient-to-br from-accent-500 to-accent-600 text-white rounded-br-[4px] shadow-accent-500/10 border border-accent-400/20'
                         : 'bg-white dark:bg-[#202020] text-gray-900 dark:text-gray-100 rounded-bl-[4px] border border-gray-100/50 dark:border-white/5'
-                        }`}>
+                        } ${isImageOnly ? 'p-1' : media && (media.type === 'image' || media.type === 'video') ? 'p-1.5 pb-2.5' : 'px-4 py-2.5'}`}>
                         {media ? (
-                          <div className="-mx-5 -mt-3 mb-2 rounded-t-2xl overflow-hidden">
+                          <div className="rounded-[1rem] overflow-hidden">
                             {media.type === 'image' ? (
-                              <img src={media.url} alt="Imagen" className="w-full h-auto object-contain bg-black/5" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                              <div className="relative group/media max-w-[320px] sm:max-w-[360px]">
+                                <img
+                                  src={media.url}
+                                  alt="Imagen"
+                                  className="w-full max-h-[360px] object-cover rounded-[0.875rem] cursor-pointer hover:opacity-95 transition-all block bg-black/5"
+                                  loading="lazy"
+                                  onClick={() => setPreviewImage(media.url)}
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                                {isImageOnly && (
+                                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest shadow-md">
+                                    <span>{formatTime(m.createdAt)}</span>
+                                    {isMe && <MessageStatus status={m.status} />}
+                                  </div>
+                                )}
+                              </div>
                             ) : media.type === 'video' ? (
-                              <video src={media.url} controls className="w-full max-h-64" />
+                              <div className="max-w-[320px] sm:max-w-[360px] bg-black rounded-[0.875rem] overflow-hidden">
+                                <video src={media.url} controls className="w-full max-h-[360px] rounded-[0.875rem]" />
+                              </div>
                             ) : media.type === 'audio' ? (
-                              <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-white/5">
-                                <Mic className="w-5 h-5 text-accent-500" />
+                              <div className="flex items-center gap-3 p-1 min-w-[220px] sm:min-w-[260px]">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-accent-500/15 text-accent-500'}`}>
+                                  <Mic className="w-4 h-4" />
+                                </div>
                                 <audio src={media.url} controls className="flex-1 h-8" />
                               </div>
                             ) : (
-                              <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-white/5">
-                                <Paperclip className="w-5 h-5 text-gray-400" />
-                                <span className="text-xs font-semibold text-gray-500 truncate">Documento</span>
-                              </div>
+                              <a
+                                href={media.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={media.filename}
+                                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
+                                  isMe
+                                    ? 'bg-white/15 hover:bg-white/25 text-white'
+                                    : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-gray-100'
+                                }`}
+                              >
+                                <div className="w-10 h-10 rounded-lg bg-red-500/15 text-red-500 flex items-center justify-center shrink-0">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold truncate max-w-[200px]">{media.filename || 'Documento adjunto'}</p>
+                                  <span className="text-[10px] opacity-75">Click para descargar / ver</span>
+                                </div>
+                              </a>
                             )}
                           </div>
                         ) : null}
-                        {body && <p className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap tracking-wide" dangerouslySetInnerHTML={{ __html: highlightText(body) }} />}
-                        <div className={`flex justify-end items-center gap-1.5 ${body || media ? 'mt-2' : ''} ${isMe ? 'text-white/70 dark:text-black/60' : 'text-gray-400 dark:text-gray-500'}`}>
-                          <span className="text-[9px] font-black uppercase tracking-widest">
-                            {formatTime(m.createdAt)}
-                          </span>
-                          {isMe && <MessageStatus status={m.status} />}
-                        </div>
+
+                        {body && (
+                          <div className={media ? 'px-2 pt-1.5' : ''}>
+                            <p
+                              className="text-[13px] font-medium leading-relaxed whitespace-pre-wrap tracking-wide"
+                              dangerouslySetInnerHTML={{ __html: highlightText(body) }}
+                            />
+                          </div>
+                        )}
+
+                        {!isImageOnly && (
+                          <div
+                            className={`flex justify-end items-center gap-1.5 ${
+                              body || media ? 'mt-1.5' : ''
+                            } ${media ? 'px-1' : ''} ${
+                              isMe ? 'text-white/70 dark:text-black/60' : 'text-gray-400 dark:text-gray-500'
+                            }`}
+                          >
+                            <span className="text-[9px] font-black uppercase tracking-widest">
+                              {formatTime(m.createdAt)}
+                            </span>
+                            {isMe && <MessageStatus status={m.status} />}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {!isMe && parseButtons(m.content).length > 0 && (
@@ -2833,6 +2950,27 @@ export const Conversations = () => {
           Por defecto algunos fondos siguen el color de acento; puedes fijar tus propios colores aquí.
         </p>
       </Modal>
+
+      {/* Lightbox Modal para previsualizar imágenes */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all shadow-lg"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Preview"
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };

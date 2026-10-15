@@ -115,7 +115,7 @@ export const Billing = () => {
   };
 
   if (loading) {
-    return <PageLoader sectionName="FacturaciÃ³n" />;
+    return <PageLoader sectionName="Facturación" />;
   }
 
   const { totalApiCost, saasCost, totalCost, totalMessages, utilityMessages, marketingMessages, authMessages, utilityCost, marketingCost, authCost, estimatedUsageHours, estimatedUsageDays, subscriptionDuration } = billingData || {};

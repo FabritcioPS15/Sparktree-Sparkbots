@@ -7,7 +7,7 @@ interface PageLoaderProps {
 
 /**
  * Standard loading screen for pages.
- * Unified loader â€” same style for initial load and page transitions.
+ * Unified loader â€” same style for initial load, page transitions and data loading.
  */
 export const PageLoader = ({ sectionName, isInitial = false }: PageLoaderProps) => {
   return (
