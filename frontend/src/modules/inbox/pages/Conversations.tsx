@@ -6,9 +6,10 @@ import api from '../../../services/api';
 import {
   Check, CheckCheck, Send, Search, Filter, Users, MoreVertical, Smile, Paperclip, Mic, Star, MessageCircle, Trash2, ChevronLeft, ChevronRight, ChevronDown, Store, Package, X, Bell, BellOff, Shield, Plus, Cloud, QrCode, Bot, User, Camera, Video, FileText, Zap, Pencil, Palette
 } from 'lucide-react';
+import { TbMessages, TbMessageCirclePlus, TbPlugConnected } from "react-icons/tb";
+
 import { FaWhatsapp, FaTelegram, FaInstagram, FaFacebookMessenger, FaTiktok } from 'react-icons/fa';
 import { PageLoader } from '../../../components/layout/PageLoader';
-import { Dropdown } from '../../../components/ui/Dropdown';
 import { Loader } from '../../../components/ui/Loader';
 import { AnimatedButton } from '../../../components/ui/AnimatedButton';
 import { Modal } from '../../../components/ui/Modal';
@@ -188,7 +189,7 @@ const CUBE_PATTERN_DARK = buildCubePattern([34, 42, 49], [26, 33, 39], [19, 25, 
 const CHAT_THEMES: ChatTheme[] = [
   {
     id: 'hex',
-    label: 'Hexágonos',
+    label: 'HexÃ¡gonos',
     light: { bg: '#e7eaee', color: '#f8f9fb', build: buildHexPattern },
     dark: { bg: '#0b141a', color: '#17262d', build: buildHexPattern },
   },
@@ -212,7 +213,7 @@ const CHAT_THEMES: ChatTheme[] = [
   },
   {
     id: 'grid',
-    label: 'Cuadrícula',
+    label: 'CuadrÃ­cula',
     light: { bg: '50', color: '200', build: buildGridPattern },
     dark: { bg: '950', color: '800', build: buildGridPattern },
   },
@@ -231,7 +232,7 @@ const CHAT_THEMES: ChatTheme[] = [
   },
   {
     id: 'solid',
-    label: 'Sólido',
+    label: 'SÃ³lido',
     solid: true,
     light: { bg: '50' },
     dark: { bg: '950' },
@@ -389,7 +390,7 @@ export const Conversations = () => {
       setAllConversations(conversationsArray);
       return true;
     } catch (err) {
-      console.warn('Failed to load conversations (se reintentará con backoff)');
+      console.warn('Failed to load conversations (se reintentarÃ¡ con backoff)');
       return false;
     } finally {
       setLoading(false);
@@ -398,7 +399,7 @@ export const Conversations = () => {
 
   const handleStartConversationSubmit = async () => {
     if (!startPhone.trim()) {
-      addNotification({ type: 'error', title: 'Teléfono requerido', message: 'Ingresa el número de teléfono.' });
+      addNotification({ type: 'error', title: 'TelÃ©fono requerido', message: 'Ingresa el nÃºmero de telÃ©fono.' });
       return;
     }
 
@@ -424,7 +425,7 @@ export const Conversations = () => {
       };
 
       const res = await api.post('/conversations/start', payload);
-      addNotification({ type: 'success', title: 'Conversación iniciada', message: 'El mensaje ha sido enviado correctamente.' });
+      addNotification({ type: 'success', title: 'ConversaciÃ³n iniciada', message: 'El mensaje ha sido enviado correctamente.' });
       setShowStartModal(false);
 
       if (res.data?.conversation) {
@@ -463,13 +464,13 @@ export const Conversations = () => {
     cleanPhone = cleanPhone.replace(/@g\.us$/i, '');
     cleanPhone = cleanPhone.replace(/@whatsapp\.net$/i, '');
 
-    // Eliminar cualquier otro carácter no numérico excepto el +
+    // Eliminar cualquier otro carÃ¡cter no numÃ©rico excepto el +
     cleanPhone = cleanPhone.replace(/[^\d+]/g, '');
 
-    // Si el número está vacío después de limpiar
+    // Si el nÃºmero estÃ¡ vacÃ­o despuÃ©s de limpiar
     if (!cleanPhone) return { prefix: '', number: '' };
 
-    // Códigos de país comunes (ISO 3166-1)
+    // CÃ³digos de paÃ­s comunes (ISO 3166-1)
     const countryCodes = ['1', '7', '20', '27', '30', '31', '32', '33', '34', '36', '39', '40', '41', '43', '44', '45', '46', '47', '48', '49', '51', '52', '53', '54', '55', '56', '57', '58', '60', '61', '62', '63', '64', '65', '66', '81', '82', '84', '86', '88', '91', '92', '93', '94', '95', '98'];
 
     // Detectar si tiene prefijo internacional (+)
@@ -477,14 +478,14 @@ export const Conversations = () => {
       const match = cleanPhone.match(/^\+(\d{1,3})(.*)$/);
       if (match) {
         const potentialPrefix = match[1];
-        // Verificar si es un código de país válido
+        // Verificar si es un cÃ³digo de paÃ­s vÃ¡lido
         if (countryCodes.includes(potentialPrefix)) {
           return {
             prefix: '+' + potentialPrefix,
             number: match[2].trim()
           };
         }
-        // Si no es código de país conocido, intentar con 2 dígitos
+        // Si no es cÃ³digo de paÃ­s conocido, intentar con 2 dÃ­gitos
         if (potentialPrefix.length === 3) {
           const twoDigitPrefix = potentialPrefix.substring(0, 2);
           if (countryCodes.includes(twoDigitPrefix)) {
@@ -497,14 +498,14 @@ export const Conversations = () => {
       }
     }
 
-    // Intentar detectar prefijo sin + (ej: 51 para Perú, 1 para USA, etc.)
+    // Intentar detectar prefijo sin + (ej: 51 para PerÃº, 1 para USA, etc.)
     const digitsOnly = cleanPhone.replace(/\D/g, '');
     if (digitsOnly.length >= 10) {
-      // Intentar coincidir con códigos de país conocidos
+      // Intentar coincidir con cÃ³digos de paÃ­s conocidos
       for (const code of countryCodes.sort((a, b) => b.length - a.length)) {
         if (digitsOnly.startsWith(code)) {
           const remainingLength = digitsOnly.length - code.length;
-          // Verificar que el número restante tenga longitud razonable (8-10 dígitos)
+          // Verificar que el nÃºmero restante tenga longitud razonable (8-10 dÃ­gitos)
           if (remainingLength >= 8 && remainingLength <= 10) {
             return {
               prefix: '+' + code,
@@ -523,7 +524,7 @@ export const Conversations = () => {
   };
 
   const getRealPhoneNumber = (contact: any) => {
-    // Intentar obtener el número real de múltiples campos posibles
+    // Intentar obtener el nÃºmero real de mÃºltiples campos posibles
     let realPhone = contact.phoneNumber;
 
     // Si phoneNumber parece un ID (muy largo), buscar en otros campos
@@ -531,12 +532,12 @@ export const Conversations = () => {
       realPhone = contact.phone || contact.contactPhone || contact.mobile || contact.cell || contact.whatsappNumber || contact.waNumber;
     }
 
-    // Si aún no hay número válido, usar el ID como fallback
+    // Si aÃºn no hay nÃºmero vÃ¡lido, usar el ID como fallback
     if (!realPhone) {
       realPhone = contact.phoneNumber || contact.id;
     }
 
-    // Si parece un ID largo (LID de WhatsApp @lid) y no corresponde a un número real, no mostrarlo
+    // Si parece un ID largo (LID de WhatsApp @lid) y no corresponde a un nÃºmero real, no mostrarlo
     const digitsOnly = (realPhone || '').replace(/\D/g, '');
     const looksLikeLid = digitsOnly.length > 15 || (realPhone || '').length > 15;
     if (looksLikeLid) return '';
@@ -681,7 +682,7 @@ export const Conversations = () => {
     loadWhatsAppConnections();
   }, []);
 
-  // Cargar los agentes reales del equipo para la asignación de conversaciones
+  // Cargar los agentes reales del equipo para la asignaciÃ³n de conversaciones
   useEffect(() => {
     getTeamUsers()
       .then(agents => setSystemAgents(Array.isArray(agents) ? agents : []))
@@ -802,10 +803,10 @@ export const Conversations = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Grabar en el mejor formato de CAPTURA del navegador (webm/opus es el
-      // más fiable en Chrome; ogg/opus en Firefox). El backend convierte después
+      // mÃ¡s fiable en Chrome; ogg/opus en Firefox). El backend convierte despuÃ©s
       // a ogg/opus, que es el formato que WhatsApp entrega como nota de voz.
       // No forcemos audio/mp4 para grabar: en algunos navegadores captura audio
-      // casi vacío (header válido pero duración ~0s).
+      // casi vacÃ­o (header válido pero duraciÃ³n ~0s).
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2']
         .find(t => MediaRecorder.isTypeSupported(t));
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -821,12 +822,12 @@ export const Conversations = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
         if (!selectedConv) return;
 
-        // Evitar notas de voz vacías: WhatsApp descarta (failed) audios que
+        // Evitar notas de voz vacÃ­as: WhatsApp descarta (failed) audios que
         // duran menos de ~500ms. No enviar y avisar al usuario.
         const elapsedMs = Date.now() - recordingStartedAtRef.current;
         if (elapsedMs < 500) {
           audioChunksRef.current = [];
-          addNotification({ type: 'error', title: 'Audio demasiado corto', message: 'Mantén la grabación al menos un segundo.' });
+          addNotification({ type: 'error', title: 'Audio demasiado corto', message: 'MantÃ©n la grabaciÃ³n al menos un segundo.' });
           return;
         }
         if (audioBlob.size === 0) return;
@@ -842,7 +843,7 @@ export const Conversations = () => {
         setMessages(prev => [...prev, optimistic]);
 
         // Leer el audio como base64 (data URL) y enviarlo por JSON, igual que
-        // fotos/documentos. El backend lo sube a Graph API y lo envía por id.
+        // fotos/documentos. El backend lo sube a Graph API y lo envÃ­a por id.
         const reader = new FileReader();
         reader.onloadend = async () => {
           const dataUrl = reader.result as string;
@@ -875,7 +876,7 @@ export const Conversations = () => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
     } catch {
-      addNotification({ type: 'error', title: 'Error', message: 'No se pudo acceder al micrófono.' });
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo acceder al micrÃ³fono.' });
     }
   };
 
@@ -924,7 +925,7 @@ export const Conversations = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const EMOJIS = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '😡', '😠', '🤬', '👍', '👎', '👊', '✊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘', '👌', '💪', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '🔥', '⭐', '✨', '💯', '🎉', '🎊', '🥳', '🎈', '🎁', '💡', '📌', '📍', '💀', '☠️', '👋', '🤚', '🖐️', '✋', '🖖', '🖕', '🤙', '💅'];
+  const EMOJIS = ['ðŸ˜€', 'ðŸ˜', 'ðŸ˜‚', 'ðŸ¤£', 'ðŸ˜ƒ', 'ðŸ˜„', 'ðŸ˜…', 'ðŸ˜†', 'ðŸ˜‰', 'ðŸ˜Š', 'ðŸ˜‹', 'ðŸ˜Ž', 'ðŸ˜', 'ðŸ¥°', 'ðŸ˜˜', 'ðŸ˜—', 'ðŸ˜™', 'ðŸ˜š', 'ðŸ™‚', 'ðŸ¤—', 'ðŸ¤©', 'ðŸ¤”', 'ðŸ¤¨', 'ðŸ˜', 'ðŸ˜‘', 'ðŸ˜¶', 'ðŸ™„', 'ðŸ˜', 'ðŸ˜£', 'ðŸ˜¥', 'ðŸ˜®', 'ðŸ¤', 'ðŸ˜¯', 'ðŸ˜ª', 'ðŸ˜«', 'ðŸ˜´', 'ðŸ˜Œ', 'ðŸ˜›', 'ðŸ˜œ', 'ðŸ˜', 'ðŸ¤¤', 'ðŸ˜’', 'ðŸ˜“', 'ðŸ˜”', 'ðŸ˜•', 'ðŸ™ƒ', 'ðŸ¤‘', 'ðŸ˜²', 'â˜¹ï¸', 'ðŸ™', 'ðŸ˜–', 'ðŸ˜ž', 'ðŸ˜Ÿ', 'ðŸ˜¤', 'ðŸ˜¢', 'ðŸ˜­', 'ðŸ˜¦', 'ðŸ˜§', 'ðŸ˜¨', 'ðŸ˜©', 'ðŸ¤¯', 'ðŸ˜¬', 'ðŸ˜°', 'ðŸ˜±', 'ðŸ¥µ', 'ðŸ¥¶', 'ðŸ˜³', 'ðŸ¤ª', 'ðŸ˜µ', 'ðŸ˜¡', 'ðŸ˜ ', 'ðŸ¤¬', 'ðŸ‘', 'ðŸ‘Ž', 'ðŸ‘Š', 'âœŠ', 'ðŸ¤›', 'ðŸ¤œ', 'ðŸ‘', 'ðŸ™Œ', 'ðŸ‘', 'ðŸ¤²', 'ðŸ¤', 'ðŸ™', 'âœŒï¸', 'ðŸ¤ž', 'ðŸ¤Ÿ', 'ðŸ¤˜', 'ðŸ‘Œ', 'ðŸ’ª', 'â¤ï¸', 'ðŸ§¡', 'ðŸ’›', 'ðŸ’š', 'ðŸ’™', 'ðŸ’œ', 'ðŸ–¤', 'ðŸ¤', 'ðŸ¤Ž', 'ðŸ’”', 'ðŸ”¥', 'â­', 'âœ¨', 'ðŸ’¯', 'ðŸŽ‰', 'ðŸŽŠ', 'ðŸ¥³', 'ðŸŽˆ', 'ðŸŽ', 'ðŸ’¡', 'ðŸ“Œ', 'ðŸ“', 'ðŸ’€', 'â˜ ï¸', 'ðŸ‘‹', 'ðŸ¤š', 'ðŸ–ï¸', 'âœ‹', 'ðŸ––', 'ðŸ–•', 'ðŸ¤™', 'ðŸ’…'];
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -1096,8 +1097,8 @@ export const Conversations = () => {
 
     try {
       // Leer el archivo como base64 (data URL) y enviarlo por JSON.
-      // Cloud API no acepta base64 como URL, así que el backend lo sube a
-      // Graph API para obtener un media_id y lo envía.
+      // Cloud API no acepta base64 como URL, asÃ­ que el backend lo sube a
+      // Graph API para obtener un media_id y lo envÃ­a.
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUrl = reader.result as string;
@@ -1137,7 +1138,7 @@ export const Conversations = () => {
     });
     setIsChatMenuOpen(false);
     setIsMenuOpen(false);
-    addNotification({ type: 'success', title: isMuted ? 'Silencio desactivado' : 'Conversación silenciada', message: '' });
+    addNotification({ type: 'success', title: isMuted ? 'Silencio desactivado' : 'ConversaciÃ³n silenciada', message: '' });
   };
 
   const [blockedContacts, setBlockedContacts] = useState<Set<string>>(new Set());
@@ -1215,11 +1216,11 @@ export const Conversations = () => {
 
         // If it's a media message without a text body
         if (parsed.url || parsed.media_url || parsed.mediaUrl || parsed.imageMessage || parsed.videoMessage || parsed.documentMessage || parsed.audioMessage || parsed.media) return '';
-        
+
         // Fallback for simple single-key objects from bot
         const keys = Object.keys(parsed);
         if (keys.length === 1 && typeof parsed[keys[0]] === 'string') {
-            return parsed[keys[0]];
+          return parsed[keys[0]];
         }
       }
 
@@ -1323,12 +1324,12 @@ export const Conversations = () => {
       if (parsed?.buttons && Array.isArray(parsed.buttons) && parsed.buttons.length > 0) {
         buttons = parsed.buttons.map((b: any, i: number) => ({
           id: b.id || `btn_${i}`,
-          text: b.text || b.title || `Opción ${i + 1}`,
+          text: b.text || b.title || `OpciÃ³n ${i + 1}`,
         }));
       }
-      // Mostrar la opción automática "↩ Volver" cuando el bot la incluye
+      // Mostrar la opciÃ³n automÃ¡tica "â†© Volver" cuando el bot la incluye
       if (parsed?.buttonMapping?.btn_back && !buttons.some((b) => b.id === 'btn_back')) {
-        buttons.push({ id: 'btn_back', text: '↩ Volver' });
+        buttons.push({ id: 'btn_back', text: 'â†© Volver' });
       }
       return buttons;
     } catch {
@@ -1351,8 +1352,8 @@ export const Conversations = () => {
     setMessageText('');
     setSending(true);
 
-    // Cuando el bot envió opciones numeradas como texto (>3), el cliente
-    // responde con el número de la opción, no con el texto.
+    // Cuando el bot enviÃ³ opciones numeradas como texto (>3), el cliente
+    // responde con el nÃºmero de la opciÃ³n, no con el texto.
     const replyText = button.number ?? button.text;
 
     const optimistic = {
@@ -1441,7 +1442,7 @@ export const Conversations = () => {
       if (selectedConv?._id === conversationId) setSelectedConv(null);
     } catch (err) {
       console.error('Failed to delete', err);
-      addNotification({ type: 'error', title: 'Error', message: 'No se pudo eliminar. Inténtalo de nuevo.' });
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo eliminar. IntÃ©ntalo de nuevo.' });
     }
   };
 
@@ -1491,8 +1492,8 @@ export const Conversations = () => {
         selectedConv.contactId.botState = null;
         selectedConv.contactId.custom_attributes = { ...(selectedConv.contactId.custom_attributes || {}), flow_history: [] };
       }
-      addNotification({ type: 'success', title: 'Bot reactivado', message: 'El bot volverá a responder a este contacto.' });
-      // Actualizar de inmediato el listado y el header (el bot queda "atendiendo" → amarillo)
+      addNotification({ type: 'success', title: 'Bot reactivado', message: 'El bot volverÃ¡ a responder a este contacto.' });
+      // Actualizar de inmediato el listado y el header (el bot queda "atendiendo" â†’ amarillo)
       setAllConversations(prev => prev.map(c =>
         c._id === selectedConv._id
           ? { ...c, botState: 'main_menu', contactId: { ...(c.contactId || {}), bot_state: null, botState: null } }
@@ -1524,9 +1525,9 @@ export const Conversations = () => {
         c._id === selectedConv._id ? { ...c, assignedTo: agentId, assignedAgent } : c
       ));
       setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: agentId, assignedAgent } : prev);
-      addNotification({ type: 'success', title: 'Conversación asignada', message: `Asignada a ${getAgentName(selectedAgent)}.` });
+      addNotification({ type: 'success', title: 'ConversaciÃ³n asignada', message: `Asignada a ${getAgentName(selectedAgent)}.` });
     } catch (err) {
-      addNotification({ type: 'error', title: 'Error', message: 'No se pudo asignar la conversación.' });
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo asignar la conversaciÃ³n.' });
     } finally {
       setAssignLoading(false);
     }
@@ -1542,9 +1543,9 @@ export const Conversations = () => {
         c._id === selectedConv._id ? { ...c, assignedTo: null, assignedAgent: null } : c
       ));
       setSelectedConv((prev: any) => prev ? { ...prev, assignedTo: null, assignedAgent: null } : prev);
-      addNotification({ type: 'success', title: 'Conversación sin asignar', message: 'Ningún agente asignado.' });
+      addNotification({ type: 'success', title: 'ConversaciÃ³n sin asignar', message: 'NingÃºn agente asignado.' });
     } catch (err) {
-      addNotification({ type: 'error', title: 'Error', message: 'No se pudo quitar la asignación.' });
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo quitar la asignaciÃ³n.' });
     } finally {
       setAssignLoading(false);
     }
@@ -1563,7 +1564,7 @@ export const Conversations = () => {
     } else if (diffDays === 1 || (diffDays === 0 && date.getDate() !== now.getDate())) {
       return `Ayer ${timeStr}`;
     } else if (diffDays < 7) {
-      const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const days = ['Dom', 'Lun', 'Mar', 'MiÃ©', 'Jue', 'Vie', 'SÃ¡b'];
       return `${days[date.getDay()]} ${timeStr}`;
     } else {
       return `${date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr}`;
@@ -1603,14 +1604,21 @@ export const Conversations = () => {
             <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Conversaciones</h1>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={openNewConversationModal}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-accent-500 text-black hover:bg-accent-600 transition-all shadow-md group relative"
-                title="Nueva conversación"
+                onClick={() => navigate('/connections')}
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-400 hover:bg-accent-50 hover:text-accent-400 transition-all group relative"
+                title="Gestionar conexiones"
               >
-                <Plus className="w-4 h-4" />
+                <TbPlugConnected className="w-5 h-5" />
               </button>
 
-              {/* Botón selector de conexión de WhatsApp */}
+              <button
+                onClick={openNewConversationModal}
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-400 text-[9px] font-black uppercase hover:bg-accent-50 hover:text-accent-400 transition-all group relative"
+                title="Nueva conversaciÃ³n"
+              >
+                <TbMessageCirclePlus className="w-5 h-5" />
+              </button>
+
               <div className="relative" ref={waMenuRef}>
                 <button
                   type="button"
@@ -1619,25 +1627,13 @@ export const Conversations = () => {
                     setIsFilterOpen(false);
                     setIsMenuOpen(false);
                   }}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative ${
-                    isWaConnectionMenuOpen
-                      ? 'bg-[#25D366] text-white shadow-md shadow-[#25D366]/30'
-                      : selectedConnectionId
-                        ? 'bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25 border border-[#25D366]/30'
-                        : 'text-gray-400 hover:text-[#25D366] hover:bg-[#25D366]/10'
-                  }`}
-                  title={
-                    selectedConnection
-                      ? `Línea WhatsApp: ${selectedConnection.displayName || selectedConnection.phoneNumber || 'Activa'}`
-                      : 'Seleccionar conexión de WhatsApp'
-                  }
-                >
-                  <FaWhatsapp className="w-4 h-4" />
-                  <span
-                    className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-dark-card ${
-                      connectedWaCount > 0 ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-gray-400'
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all relative ${isWaConnectionMenuOpen
+                    ? 'bg-accent-500 text-white shadow-md shadow-accent-500/30'
+                    : 'text-gray-400 hover:bg-accent-50 hover:text-accent-400'
                     }`}
-                  />
+                  title="Gestionar conexiones"
+                >
+                  <TbPlugConnected className="w-5 h-5" />
                 </button>
 
                 {isWaConnectionMenuOpen && (
@@ -1649,7 +1645,7 @@ export const Conversations = () => {
                         </div>
                         <div>
                           <p className="text-[11px] font-black text-gray-900 dark:text-white leading-tight">Conexión de WhatsApp</p>
-                          <p className="text-[9px] text-gray-400 font-medium">Línea activa para responder</p>
+                          <p className="text-[9px] text-gray-400 font-medium">LÃ­nea activa para responder</p>
                         </div>
                       </div>
                       <button
@@ -1665,7 +1661,7 @@ export const Conversations = () => {
                     </div>
 
                     <div className="max-h-60 overflow-y-auto space-y-1 py-1 custom-scrollbar">
-                      {/* Opción Automática */}
+                      {/* OpciÃ³n AutomÃ¡tica */}
                       <button
                         type="button"
                         onClick={() => {
@@ -1677,17 +1673,16 @@ export const Conversations = () => {
                             message: 'Se usará la línea predeterminada de WhatsApp.'
                           });
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
-                          !selectedConnectionId
-                            ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400 border border-accent-500/20'
-                            : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${!selectedConnectionId
+                          ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400 border border-accent-500/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                          }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                           <div>
-                            <p className="text-xs font-bold leading-tight">Automático / Predeterminada</p>
-                            <p className="text-[10px] text-gray-400">Usa la primera línea activa disponible</p>
+                            <p className="text-xs font-bold leading-tight">AutomÃ¡tico / Predeterminada</p>
+                            <p className="text-[10px] text-gray-400">Usa la primera lÃ­nea activa disponible</p>
                           </div>
                         </div>
                         {!selectedConnectionId && <Check className="w-3.5 h-3.5 text-accent-500 shrink-0" />}
@@ -1695,7 +1690,7 @@ export const Conversations = () => {
 
                       {whatsappConnections.length === 0 ? (
                         <div className="p-3 text-center">
-                          <p className="text-xs text-gray-400 mb-2">No hay líneas de WhatsApp conectadas</p>
+                          <p className="text-xs text-gray-400 mb-2">No hay lÃ­neas de WhatsApp conectadas</p>
                           <button
                             type="button"
                             onClick={() => {
@@ -1720,26 +1715,24 @@ export const Conversations = () => {
                                 setIsWaConnectionMenuOpen(false);
                                 addNotification({
                                   type: 'success',
-                                  title: 'Línea de WhatsApp seleccionada',
-                                  message: `Línea activa: ${conn.displayName || conn.phoneNumber || 'WhatsApp'}`
+                                  title: 'LÃ­nea de WhatsApp seleccionada',
+                                  message: `LÃ­nea activa: ${conn.displayName || conn.phoneNumber || 'WhatsApp'}`
                                 });
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${
-                                isSelected
-                                  ? 'bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30'
-                                  : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all ${isSelected
+                                ? 'bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30'
+                                : 'hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                                }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <span
-                                  className={`w-2 h-2 rounded-full shrink-0 ${
-                                    isConn ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-red-400'
-                                  }`}
+                                  className={`w-2 h-2 rounded-full shrink-0 ${isConn ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-red-400'
+                                    }`}
                                 />
                                 <div className="truncate">
                                   <div className="flex items-center gap-1.5">
                                     <p className="text-xs font-bold leading-tight truncate">
-                                      {conn.displayName || 'Línea WhatsApp'}
+                                      {conn.displayName || 'LÃ­nea WhatsApp'}
                                     </p>
                                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 uppercase font-bold shrink-0">
                                       {conn.type === 'cloud' ? 'Cloud' : 'QR'}
@@ -1750,7 +1743,7 @@ export const Conversations = () => {
                                   </p>
                                 </div>
                               </div>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-[#25D366] shrink-0 ml-2" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-accent-500 shrink-0 ml-2" />}
                             </button>
                           );
                         })
@@ -1760,7 +1753,7 @@ export const Conversations = () => {
                     {selectedConnection && (
                       <div className="mt-1 pt-2 border-t border-gray-100 dark:border-white/5 px-3 flex items-center justify-between text-[10px] text-gray-400">
                         <span>Línea seleccionada:</span>
-                        <span className="font-bold text-[#25D366] truncate max-w-[150px]">
+                        <span className="font-bold text-accent-500 truncate max-w-[150px]">
                           {selectedConnection.displayName || selectedConnection.phoneNumber}
                         </span>
                       </div>
@@ -1783,7 +1776,7 @@ export const Conversations = () => {
                     </div>
                     {[
                       { id: 'all', label: 'Todos', icon: MessageCircle },
-                      { id: 'unread', label: 'No leídos', icon: Star },
+                      { id: 'unread', label: 'No leÃ­dos', icon: Star },
                       { id: 'groups', label: 'Grupos', icon: Users }
                     ].map(f => (
                       <button
@@ -1853,7 +1846,7 @@ export const Conversations = () => {
             </div>
             <input
               type="text"
-              placeholder="Buscar conversación..."
+              placeholder="Buscar conversaciÃ³n..."
               className="w-full h-10 pl-10 pr-4 bg-gray-50/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-accent-500/50 focus:bg-white focus:ring-4 focus:ring-accent-500/10 rounded-xl outline-none text-[13px] text-gray-900 dark:text-white placeholder:text-gray-400 transition-all font-bold shadow-sm"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
@@ -1908,7 +1901,7 @@ export const Conversations = () => {
                         {contact.name || (() => {
                           const realPhone = getRealPhoneNumber(contact);
                           const { prefix, number } = formatPhoneNumber(realPhone);
-                          return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin número guardado';
+                          return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin nÃºmero guardado';
                         })()}
                       </span>
                       <div className={`w-4 h-4 rounded flex items-center justify-center text-white shrink-0 ${channelBadge.color}`} title={channelBadge.label}>
@@ -1967,7 +1960,7 @@ export const Conversations = () => {
         {totalPages > 1 && (
           <div className="p-4 border-t border-gray-50 dark:border-white/5 flex items-center justify-between">
             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Pág {currentPage} / {totalPages}
+              PÃ¡g {currentPage} / {totalPages}
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -1990,9 +1983,9 @@ export const Conversations = () => {
       </div>
 
       {/* --- MAIN PANE --- */}
-      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden h-full relative ${showMobileChat ? 'flex' : 'hidden md:flex'}`} style={{ backgroundColor: chatThemeMode.bg }}>
-        {/* Chat Background Pattern */}
-        {chatThemeMode.image && (
+      <div className={`flex-1 flex flex-col min-h-0 overflow-hidden h-full relative ${showMobileChat ? 'flex' : 'hidden md:flex'} ${selectedConv ? '' : 'bg-white dark:bg-dark-bg'}`} style={selectedConv ? { backgroundColor: chatThemeMode.bg } : undefined}>
+        {/* Chat Background Pattern (solo dentro de una conversaciÃ³n) */}
+        {selectedConv && chatThemeMode.image && (
           <div
             className="absolute inset-0 z-0 pointer-events-none"
             style={{
@@ -2024,7 +2017,7 @@ export const Conversations = () => {
                     {selectedConv.contactId?.name || (() => {
                       const realPhone = getRealPhoneNumber(selectedConv.contactId);
                       const { prefix, number } = formatPhoneNumber(realPhone);
-                      return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin número guardado';
+                      return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin nÃºmero guardado';
                     })()}
                   </h3>
                 </div>
@@ -2116,160 +2109,160 @@ export const Conversations = () => {
                           {selectedConv.contactId?.name || (() => {
                             const realPhone = getRealPhoneNumber(selectedConv.contactId);
                             const { prefix, number } = formatPhoneNumber(realPhone);
-                            return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin número guardado';
+                            return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin nÃºmero guardado';
                           })()}
                         </h3>
                       </div>
                       <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-none mt-1.5 block">{(() => {
                         const realPhone = getRealPhoneNumber(selectedConv.contactId);
                         const { prefix, number } = formatPhoneNumber(realPhone);
-                        return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin número guardado';
+                        return prefix && number ? `${prefix} ${number}` : number || realPhone || 'Sin nÃºmero guardado';
                       })()}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4 relative">
                     <div className="flex items-center gap-1.5">
-                        <BotStatusIndicator conv={selectedConv} sizeClass="w-4 h-4" />
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Atendido:</span>
-                        <div className="relative">
-                          <button
-                            onClick={() => setIsAssignOpen(!isAssignOpen)}
-                            className="flex items-center gap-1.5 text-[10px] font-bold text-gray-900 dark:text-white dark:bg-white/5 px-2.5 py-1 rounded-lg border border-gray-100 dark:border-white/10 hover:border-accent-500/50 hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            {selectedConv.assignedAgent?.name || (selectedConv.assignedTo ? getAgentName(systemAgents.find(a => a.id === selectedConv.assignedTo)) : 'Sin asignar')}
-                            <ChevronDown className="w-3.5 h-3.5 opacity-50" />
-                          </button>
-                          {isAssignOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setIsAssignOpen(false)}></div>
-                              <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 dark:bg-white/5">
-                                  <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Asignar a:</span>
-                                </div>
-                                <div className="py-1 max-h-64 overflow-y-auto custom-scrollbar">
-                                  {assignLoading && <div className="px-4 py-2 text-xs text-gray-400">Cargando...</div>}
-                                  {!assignLoading && systemAgents.length === 0 && (
-                                    <div className="px-4 py-2 text-xs text-gray-400">No hay agentes disponibles</div>
-                                  )}
-                                  {systemAgents.map(agent => (
-                                    <button
-                                      key={agent.id}
-                                      onClick={() => handleAssignAgent(agent.id)}
-                                      className={`w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 dark:hover:bg-white/5 transition-colors font-bold ${(selectedConv.assignedTo === agent.id || selectedConv.assignedAgent?.id === agent.id)
-                                        ? 'text-accent-500 bg-accent-500/5'
-                                        : 'text-gray-700 dark:text-gray-300'
-                                        }`}
-                                    >
-                                      {getAgentName(agent)}
-                                    </button>
-                                  ))}
-                                </div>
-                                {selectedConv.assignedTo && (
-                                  <>
-                                    <div className="border-t border-gray-100 dark:border-white/5" />
-                                    <button
-                                      onClick={handleUnassignAgent}
-                                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                                    >
-                                      Quitar asignación
-                                    </button>
-                                  </>
+                      <BotStatusIndicator conv={selectedConv} sizeClass="w-4 h-4" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Atendido:</span>
+                      <div className="relative">
+                        <button
+                          onClick={() => setIsAssignOpen(!isAssignOpen)}
+                          className="flex items-center gap-1.5 text-[10px] font-bold text-gray-900 dark:text-white dark:bg-white/5 px-2.5 py-1 rounded-lg border border-gray-100 dark:border-white/10 hover:border-accent-500/50 hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          {selectedConv.assignedAgent?.name || (selectedConv.assignedTo ? getAgentName(systemAgents.find(a => a.id === selectedConv.assignedTo)) : 'Sin asignar')}
+                          <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+                        </button>
+                        {isAssignOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsAssignOpen(false)}></div>
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                              <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 dark:bg-white/5">
+                                <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Asignar a:</span>
+                              </div>
+                              <div className="py-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                {assignLoading && <div className="px-4 py-2 text-xs text-gray-400">Cargando...</div>}
+                                {!assignLoading && systemAgents.length === 0 && (
+                                  <div className="px-4 py-2 text-xs text-gray-400">No hay agentes disponibles</div>
                                 )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1"></div>
-
-                      <div className="flex items-center gap-0">
-                        <div className="relative">
-                          <button onClick={handleSearchInChat} className={`p-1.5 rounded-lg transition-all hover:bg-accent-500/5 ${isChatSearchOpen ? 'text-accent-500 bg-accent-500/5' : 'text-gray-400 hover:text-accent-500'}`}>
-                            <Search className="w-4 h-4" />
-                          </button>
-                          {isChatSearchOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }} />
-                              <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                <div className="p-1.5">
-                                  <div className="relative">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                    <input
-                                      type="text"
-                                      value={chatSearchTerm}
-                                      onChange={(e) => { setChatSearchTerm(e.target.value); setChatSearchIndex(0); }}
-                                      onKeyDown={(e) => { if (e.key === 'Enter') goToChatSearchResult('next'); }}
-                                      placeholder="Buscar..."
-                                      className="w-full h-8 pl-8 pr-2 bg-gray-100 dark:bg-white/10 border border-transparent focus:border-accent-500/30 rounded-lg outline-none text-xs font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 transition-all"
-                                    />
-                                  </div>
-                                  <div className="flex items-center justify-between mt-1.5 px-0.5">
-                                    <span className="text-[10px] font-bold text-gray-400 tabular-nums whitespace-nowrap">
-                                      {chatSearchTerm ? `${chatSearchIndex + 1}/${chatSearchResults.length}` : 'Escribe para buscar'}
-                                    </span>
-                                    <div className="flex items-center gap-0.5">
-                                      <button onClick={() => goToChatSearchResult('prev')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
-                                        className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
-                                        <ChevronLeft className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button onClick={() => goToChatSearchResult('next')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
-                                        className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
-                                        <ChevronRight className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }}
-                                        className="p-1 text-gray-400 hover:text-red-500 transition-all">
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <button onClick={() => setIsChatMenuOpen(!isChatMenuOpen)} className="p-1.5 text-gray-400 hover:text-accent-500 hover:bg-accent-500/5 rounded-lg transition-all">
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                          {isChatMenuOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setIsChatMenuOpen(false)} />
-                              <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                <button onClick={handleSearchInChat} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                  <Search className="w-4 h-4 text-gray-400" /> Buscar
-                                </button>
-                                <button onClick={() => handleMuteConversation(selectedConv._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                  <Bell className={`w-4 h-4 ${mutedConversations.has(selectedConv._id) ? 'text-accent-500' : 'text-gray-400'}`} /> {mutedConversations.has(selectedConv._id) ? 'Silenciado' : 'Silenciar'}
-                                </button>
-                                <button onClick={() => handleBlockContact(selectedConv.contactId?._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                  <Shield className={`w-4 h-4 ${blockedContacts.has(selectedConv.contactId?._id || '') ? 'text-red-500' : 'text-gray-400'}`} /> {blockedContacts.has(selectedConv.contactId?._id || '') ? 'Bloqueado' : 'Bloquear'}
-                                </button>
-                                {isBotPaused(selectedConv) && (
-                                  <button onClick={handleReactivateBot} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
-                                    <Bot className="w-4 h-4 text-emerald-500" /> Reactivar bot
+                                {systemAgents.map(agent => (
+                                  <button
+                                    key={agent.id}
+                                    onClick={() => handleAssignAgent(agent.id)}
+                                    className={`w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 dark:hover:bg-white/5 transition-colors font-bold ${(selectedConv.assignedTo === agent.id || selectedConv.assignedAgent?.id === agent.id)
+                                      ? 'text-accent-500 bg-accent-500/5'
+                                      : 'text-gray-700 dark:text-gray-300'
+                                      }`}
+                                  >
+                                    {getAgentName(agent)}
                                   </button>
-                                )}
-                                <button onClick={() => { setIsChatMenuOpen(false); setIsChatThemeOpen(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                  <Palette className="w-4 h-4 text-gray-400" /> Fondo del chat
-                                </button>
-                                <div className="border-t border-gray-100 dark:border-white/5" />
-                                <button onClick={(e) => { setIsChatMenuOpen(false); handleDeleteConversation(e as any, selectedConv._id, selectedConv.contactId?._id); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                                  <Trash2 className="w-4 h-4" /> Eliminar
-                                </button>
+                                ))}
                               </div>
-                            </>
-                          )}
-                        </div>
-                        </div>
+                              {selectedConv.assignedTo && (
+                                <>
+                                  <div className="border-t border-gray-100 dark:border-white/5" />
+                                  <button
+                                    onClick={handleUnassignAgent}
+                                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                  >
+                                    Quitar asignaciÃ³n
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1"></div>
+
+                    <div className="flex items-center gap-0">
+                      <div className="relative">
+                        <button onClick={handleSearchInChat} className={`p-1.5 rounded-lg transition-all hover:bg-accent-500/5 ${isChatSearchOpen ? 'text-accent-500 bg-accent-500/5' : 'text-gray-400 hover:text-accent-500'}`}>
+                          <Search className="w-4 h-4" />
+                        </button>
+                        {isChatSearchOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }} />
+                            <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                              <div className="p-1.5">
+                                <div className="relative">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    value={chatSearchTerm}
+                                    onChange={(e) => { setChatSearchTerm(e.target.value); setChatSearchIndex(0); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') goToChatSearchResult('next'); }}
+                                    placeholder="Buscar..."
+                                    className="w-full h-8 pl-8 pr-2 bg-gray-100 dark:bg-white/10 border border-transparent focus:border-accent-500/30 rounded-lg outline-none text-xs font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 transition-all"
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between mt-1.5 px-0.5">
+                                  <span className="text-[10px] font-bold text-gray-400 tabular-nums whitespace-nowrap">
+                                    {chatSearchTerm ? `${chatSearchIndex + 1}/${chatSearchResults.length}` : 'Escribe para buscar'}
+                                  </span>
+                                  <div className="flex items-center gap-0.5">
+                                    <button onClick={() => goToChatSearchResult('prev')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                      className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                      <ChevronLeft className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => goToChatSearchResult('next')} disabled={!chatSearchTerm || chatSearchResults.length === 0}
+                                      className="p-1 text-gray-400 hover:text-accent-500 disabled:opacity-30 transition-all">
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => { setIsChatSearchOpen(false); setChatSearchTerm(''); }}
+                                      className="p-1 text-gray-400 hover:text-red-500 transition-all">
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <button onClick={() => setIsChatMenuOpen(!isChatMenuOpen)} className="p-1.5 text-gray-400 hover:text-accent-500 hover:bg-accent-500/5 rounded-lg transition-all">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {isChatMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsChatMenuOpen(false)} />
+                            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                              <button onClick={handleSearchInChat} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                <Search className="w-4 h-4 text-gray-400" /> Buscar
+                              </button>
+                              <button onClick={() => handleMuteConversation(selectedConv._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                <Bell className={`w-4 h-4 ${mutedConversations.has(selectedConv._id) ? 'text-accent-500' : 'text-gray-400'}`} /> {mutedConversations.has(selectedConv._id) ? 'Silenciado' : 'Silenciar'}
+                              </button>
+                              <button onClick={() => handleBlockContact(selectedConv.contactId?._id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                <Shield className={`w-4 h-4 ${blockedContacts.has(selectedConv.contactId?._id || '') ? 'text-red-500' : 'text-gray-400'}`} /> {blockedContacts.has(selectedConv.contactId?._id || '') ? 'Bloqueado' : 'Bloquear'}
+                              </button>
+                              {isBotPaused(selectedConv) && (
+                                <button onClick={handleReactivateBot} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors">
+                                  <Bot className="w-4 h-4 text-emerald-500" /> Reactivar bot
+                                </button>
+                              )}
+                              <button onClick={() => { setIsChatMenuOpen(false); setIsChatThemeOpen(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                <Palette className="w-4 h-4 text-gray-400" /> Fondo del chat
+                              </button>
+                              <div className="border-t border-gray-100 dark:border-white/5" />
+                              <button onClick={(e) => { setIsChatMenuOpen(false); handleDeleteConversation(e as any, selectedConv._id, selectedConv.contactId?._id); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                                <Trash2 className="w-4 h-4" /> Eliminar
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
+                </div>
               </div>
+            </div>
 
-{/* Chat Body */}
+            {/* Chat Body */}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 pb-4 space-y-4 custom-scrollbar relative z-10"
@@ -2358,11 +2351,10 @@ export const Conversations = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 download={media.filename}
-                                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
-                                  isMe
-                                    ? 'bg-white/15 hover:bg-white/25 text-white'
-                                    : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-gray-100'
-                                }`}
+                                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${isMe
+                                  ? 'bg-white/15 hover:bg-white/25 text-white'
+                                  : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-gray-100'
+                                  }`}
                               >
                                 <div className="w-10 h-10 rounded-lg bg-red-500/15 text-red-500 flex items-center justify-center shrink-0">
                                   <FileText className="w-5 h-5" />
@@ -2387,11 +2379,9 @@ export const Conversations = () => {
 
                         {!isImageOnly && (
                           <div
-                            className={`flex justify-end items-center gap-1.5 ${
-                              body || media ? 'mt-1.5' : ''
-                            } ${media ? 'px-1' : ''} ${
-                              isMe ? 'text-white/70 dark:text-black/60' : 'text-gray-400 dark:text-gray-500'
-                            }`}
+                            className={`flex justify-end items-center gap-1.5 ${body || media ? 'mt-1.5' : ''
+                              } ${media ? 'px-1' : ''} ${isMe ? 'text-white/70 dark:text-black/60' : 'text-gray-400 dark:text-gray-500'
+                              }`}
                           >
                             <span className="text-[9px] font-black uppercase tracking-widest">
                               {formatTime(m.createdAt)}
@@ -2462,11 +2452,11 @@ export const Conversations = () => {
                   </div>
                   <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-2 space-y-2">
                     {loadingCatalogs ? (
-                      <div className="text-center py-6 text-xs font-bold text-gray-500">Cargando catálogos...</div>
+                      <div className="text-center py-6 text-xs font-bold text-gray-500">Cargando catÃ¡logos...</div>
                     ) : catalogs.length === 0 ? (
                       <div className="text-center py-6">
                         <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-xs font-bold text-gray-500">No hay catálogos disponibles.</p>
+                        <p className="text-xs font-bold text-gray-500">No hay catÃ¡logos disponibles.</p>
                       </div>
                     ) : (
                       catalogs.map(catalog => (
@@ -2493,7 +2483,7 @@ export const Conversations = () => {
                               </button>
                             ))}
                             {(!catalog.items || catalog.items.length === 0) && (
-                              <p className="text-[10px] font-bold text-gray-400 px-2">Catálogo vacío</p>
+                              <p className="text-[10px] font-bold text-gray-400 px-2">CatÃ¡logo vacÃ­o</p>
                             )}
                           </div>
                         </div>
@@ -2537,14 +2527,14 @@ export const Conversations = () => {
                     <button onClick={toggleCatalog} className={`p-1.5 md:p-2 transition-all relative group/catalog ${isCatalogOpen ? 'text-accent-500 bg-accent-500/10 rounded-lg' : 'text-gray-400 hover:text-accent-500'}`}>
                       <Store className="w-4 h-4 md:w-5 md:h-5" />
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded-lg opacity-0 group-hover/catalog:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden md:block">
-                        Catálogo
+                        CatÃ¡logo
                       </div>
                     </button>
                     <div className="relative">
                       <button onClick={() => setIsQuickRepliesOpen(o => !o)} className={`p-1.5 md:p-2 transition-all relative group/quick ${isQuickRepliesOpen ? 'text-accent-500 bg-accent-500/10 rounded-lg' : 'text-gray-400 hover:text-accent-500'}`}>
                         <Zap className="w-4 h-4 md:w-5 md:h-5" />
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded-lg opacity-0 group-hover/quick:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden md:block">
-                          Mensajes rápidos
+                          Mensajes rÃ¡pidos
                         </div>
                       </button>
                       {isQuickRepliesOpen && (
@@ -2552,12 +2542,12 @@ export const Conversations = () => {
                           <div className="fixed inset-0 z-40" onClick={() => setIsQuickRepliesOpen(false)} />
                           <div className="absolute bottom-full right-0 mb-2 w-72 md:w-80 bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                             <div className="p-3 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Mensajes rápidos</span>
+                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Mensajes rÃ¡pidos</span>
                               <span className="text-[9px] font-bold text-gray-300 dark:text-gray-600">{quickReplies.length}</span>
                             </div>
                             <div className="max-h-56 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                               {quickReplies.length === 0 && (
-                                <p className="text-[10px] font-bold text-gray-400 px-2 py-3 text-center">Sin mensajes rápidos</p>
+                                <p className="text-[10px] font-bold text-gray-400 px-2 py-3 text-center">Sin mensajes rÃ¡pidos</p>
                               )}
                               {quickReplies.map((reply, i) => (
                                 <div key={`${reply}-${i}`} className="group/qr flex items-center gap-1 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
@@ -2601,7 +2591,7 @@ export const Conversations = () => {
                                 value={newQuickReply}
                                 onChange={(e) => setNewQuickReply(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') addQuickReply(); }}
-                                placeholder="Nuevo mensaje rápido..."
+                                placeholder="Nuevo mensaje rÃ¡pido..."
                                 className="flex-1 min-w-0 bg-gray-50 dark:bg-white/5 rounded-xl px-2.5 py-1.5 text-[12px] font-bold text-gray-900 dark:text-white placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-accent-500/20"
                               />
                               <button onClick={addQuickReply} disabled={!newQuickReply.trim()} title="Agregar" className={`p-1.5 rounded-lg transition-all ${newQuickReply.trim() ? 'text-white bg-accent-500 hover:brightness-110' : 'text-gray-300 dark:text-gray-600'}`}>
@@ -2662,18 +2652,52 @@ export const Conversations = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-10 select-none animate-in fade-in zoom-in-95 duration-1000">
-            <div className="w-60 h-60 bg-white dark:bg-white/5 rounded-[2.5rem] flex items-center justify-center mb-10 shadow-2xl relative transform -rotate-2 hover:rotate-0 transition-transform duration-700">
-              <div className="absolute inset-0 bg-accent-500/10 blur-[60px] rounded-full" />
-              <MessageCircle className="w-24 h-24 text-accent-500 z-10 animate-pulse-slow" />
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-10 select-none bg-white dark:bg-dark-bg animate-in fade-in duration-300">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-accent-500/15 blur-[50px] rounded-full" />
+              <div className="relative w-24 h-24 bg-gradient-to-br from-accent-400/10 to-accent-500/5 border border-gray-100 dark:border-white/10 rounded-[2rem] flex items-center justify-center shadow-xl">
+                <TbMessages className="w-12 h-12 text-accent-500" />
+              </div>
             </div>
-            <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4 tracking-tighter">SparkBot Messaging</h2>
-            <p className="max-w-sm text-gray-500 dark:text-gray-400 text-sm font-medium leading-relaxed mb-10 px-6">
-              Gestiona todas tus interacciones de WhatsApp desde una interfaz centralizada y moderna.
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">SparkBot Messaging</h2>
+            <p className="max-w-md text-gray-500 dark:text-gray-400 text-sm font-medium leading-relaxed mt-3 mb-8 px-6">
+              Selecciona una conversaciÃ³n de la lista para comenzar a chatear, o inicia una nueva conversaciÃ³n.
             </p>
-            <div className="flex items-center gap-3 bg-black dark:bg-accent-500 px-6 py-2.5 rounded-2xl text-white dark:text-black shadow-lg transition-all active:scale-95 cursor-pointer">
-              <Check className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cifrado Activo</span>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              <button
+                onClick={() => setShowStartModal(true)}
+                className="flex items-center gap-2 px-5 h-10 bg-gradient-to-r from-accent-500 to-accent-600 text-black text-sm font-bold rounded-xl hover:opacity-90 transition-all shadow-md"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva ConversaciÃ³n
+              </button>
+
+              {(whatsappConnections.filter(c => c.status === 'connected' || c.status === 'active').length > 0) ? (
+                <button
+                  onClick={() => navigate('/whatsapp-qr')}
+                  className="flex items-center gap-2 px-5 h-10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-xl border border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all"
+                >
+                  <Cloud className="w-4 h-4" />
+                  Gestionar Canales
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/whatsapp-qr')}
+                  className="flex items-center gap-2 px-5 h-10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-xl border border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Conectar WhatsApp
+                </button>
+              )}
+
+              <button
+                onClick={() => navigate('/knowledge-base')}
+                className="flex items-center gap-2 px-5 h-10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-xl border border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all"
+              >
+                <Bot className="w-4 h-4" />
+                Base de Conocimiento
+              </button>
             </div>
           </div>
         )}
@@ -2699,11 +2723,11 @@ export const Conversations = () => {
         `}</style>
       </div>
 
-      {/* Modal Nueva Conversación */}
+      {/* Modal Nueva ConversaciÃ³n */}
       <Modal
         open={showStartModal}
         onClose={() => setShowStartModal(false)}
-        title="Iniciar Nueva Conversación"
+        title="Iniciar Nueva ConversaciÃ³n"
         icon={<Plus className="w-5 h-5 text-accent-500" />}
         size="md"
       >
@@ -2715,11 +2739,10 @@ export const Conversations = () => {
               <button
                 type="button"
                 onClick={() => setStartProvider('baileys')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  startProvider === 'baileys'
-                    ? 'border-accent-500 bg-accent-500/10 text-accent-600 dark:text-accent-400'
-                    : 'border-slate-200 dark:border-slate-700 text-gray-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${startProvider === 'baileys'
+                  ? 'border-accent-500 bg-accent-500/10 text-accent-600 dark:text-accent-400'
+                  : 'border-slate-200 dark:border-slate-700 text-gray-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
               >
                 <QrCode className="w-4 h-4" />
                 Baileys (Texto libre)
@@ -2733,11 +2756,10 @@ export const Conversations = () => {
                     fetchMetaTemplates(cloudConnections[0].id);
                   }
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  startProvider === 'whatsapp_cloud'
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                    : 'border-slate-200 dark:border-slate-700 text-gray-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${startProvider === 'whatsapp_cloud'
+                  ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  : 'border-slate-200 dark:border-slate-700 text-gray-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
               >
                 <Cloud className="w-4 h-4" />
                 Cloud API (Meta Template)
@@ -2745,9 +2767,9 @@ export const Conversations = () => {
             </div>
           </div>
 
-          {/* Teléfono */}
+          {/* TelÃ©fono */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Número de Teléfono</label>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">NÃºmero de TelÃ©fono</label>
             <input
               type="text"
               placeholder="ej. +51 987654321 o 987654321"
@@ -2760,7 +2782,7 @@ export const Conversations = () => {
           {/* If Baileys: Select Baileys Connection if multiple */}
           {startProvider === 'baileys' && whatsappConnections.filter(c => c.type === 'baileys').length > 1 && (
             <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Línea WhatsApp (Baileys)</label>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">LÃ­nea WhatsApp (Baileys)</label>
               <select
                 value={startBaileysConnId || selectedConnectionId}
                 onChange={e => setStartBaileysConnId(e.target.value)}
@@ -2768,7 +2790,7 @@ export const Conversations = () => {
               >
                 {whatsappConnections.filter(c => c.type === 'baileys').map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.displayName} {c.phoneNumber ? `(${c.phoneNumber})` : ''} - {c.status === 'connected' ? '🟢 Conectado' : '⚪ Desconectado'}
+                    {c.displayName} {c.phoneNumber ? `(${c.phoneNumber})` : ''} - {c.status === 'connected' ? 'ðŸŸ¢ Conectado' : 'âšª Desconectado'}
                   </option>
                 ))}
               </select>
@@ -2794,7 +2816,7 @@ export const Conversations = () => {
             <>
               {cloudConnections.length === 0 ? (
                 <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-200">
-                  No hay conexiones de WhatsApp Cloud API configuradas. Ve a <strong>Gestión de WhatsApp</strong> para configurar las credenciales de Meta.
+                  No hay conexiones de WhatsApp Cloud API configuradas. Ve a <strong>GestiÃ³n de WhatsApp</strong> para configurar las credenciales de Meta.
                 </div>
               ) : (
                 <>
@@ -2834,7 +2856,7 @@ export const Conversations = () => {
                       >
                         {metaTemplates.map(tmpl => (
                           <option key={tmpl.id || tmpl.name} value={tmpl.name}>
-                            {tmpl.name} ({tmpl.language || 'es'}) — {tmpl.category}
+                            {tmpl.name} ({tmpl.language || 'es'}) â€” {tmpl.category}
                           </option>
                         ))}
                       </select>
@@ -2860,7 +2882,7 @@ export const Conversations = () => {
               disabled={submittingStart || (startProvider === 'whatsapp_cloud' && cloudConnections.length === 0)}
               className="flex-1 py-3 bg-gradient-to-r from-accent-500 to-accent-600 text-black text-xs font-bold rounded-xl hover:from-accent-600 hover:to-accent-700 transition-all shadow-md disabled:opacity-50"
             >
-              {submittingStart ? 'Enviando...' : 'Iniciar Conversación'}
+              {submittingStart ? 'Enviando...' : 'Iniciar ConversaciÃ³n'}
             </button>
           </div>
         </div>
@@ -2871,7 +2893,7 @@ export const Conversations = () => {
         open={isChatThemeOpen}
         onClose={() => setIsChatThemeOpen(false)}
         title="Fondo del chat"
-        subtitle="Elige el fondo que se verá en tus conversaciones"
+        subtitle="Elige el fondo que se verÃ¡ en tus conversaciones"
         icon={<Palette className="w-5 h-5 text-accent-500" />}
         size="sm"
       >
@@ -2901,7 +2923,7 @@ export const Conversations = () => {
           <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
             <div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Color del fondo</p>
-              <p className="text-xs text-slate-400">Elige un color para el fondo sólido</p>
+              <p className="text-xs text-slate-400">Elige un color para el fondo sÃ³lido</p>
             </div>
             <input
               type="color"
@@ -2934,7 +2956,7 @@ export const Conversations = () => {
             </div>
             {!chatTheme.multiTone && chatThemeColors.color !== undefined && (
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Color del patrón</span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Color del patrÃ³n</span>
                 <input
                   type="color"
                   value={chatThemeColors.color || '#000000'}
@@ -2947,11 +2969,11 @@ export const Conversations = () => {
         )}
 
         <p className="mt-4 text-[11px] text-slate-400 dark:text-slate-500">
-          Por defecto algunos fondos siguen el color de acento; puedes fijar tus propios colores aquí.
+          Por defecto algunos fondos siguen el color de acento; puedes fijar tus propios colores aquÃ­.
         </p>
       </Modal>
 
-      {/* Lightbox Modal para previsualizar imágenes */}
+      {/* Lightbox Modal para previsualizar imÃ¡genes */}
       {previewImage && (
         <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
